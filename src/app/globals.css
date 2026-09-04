@@ -1,0 +1,344 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 250, 252, 250;
+  --background-end-rgb: 243, 248, 244;
+  --chart-slot-bg: #f8fafc;
+  --chart-slot-hover: #f1f5f9;
+  --chart-grid: #f1f5f9;
+  --chart-axis: #e2e8f0;
+  --chart-text: #94a3b8;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #ffffff;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphic Cards */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 30px -5px rgba(22, 101, 52, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+}
+
+.glass-panel-elevated {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(220, 252, 231, 0.9);
+  box-shadow: 0 20px 40px -10px rgba(22, 101, 52, 0.12), 0 0 0 1px rgba(34, 197, 94, 0.05);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+/* Spotlight Card Effect */
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  top: var(--mouse-y, -1000px);
+  left: var(--mouse-x, -1000px);
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.18), transparent 70%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ========================================================= */
+/* FACEBOOK NIGHT MODE PALETTE                               */
+/* ========================================================= */
+html.dark {
+  color-scheme: dark;
+  --chart-slot-bg: rgba(255, 255, 255, 0.04);
+  --chart-slot-hover: rgba(255, 255, 255, 0.09);
+  --chart-grid: #393a3b;
+  --chart-axis: #4e4f50;
+  --chart-text: #b0b3b8;
+}
+
+html.dark body {
+  background-color: #18191a !important; /* Facebook wash */
+  color: #b0b3b8 !important; /* Facebook secondary text */
+}
+
+html.dark .bg-\[\#f8f9fa\] {
+  background-color: #18191a !important;
+}
+
+/* Facebook Card / Elevated Surface (#242526) */
+html.dark .bg-white,
+html.dark .dark\:bg-slate-900,
+html.dark .dark\:bg-slate-800,
+html.dark .dark\:bg-slate-800\/90,
+html.dark .dark\:bg-slate-800\/80,
+html.dark .dark\:bg-slate-800\/70 {
+  background-color: #242526 !important;
+  border-color: #393a3b !important;
+  color: #e4e6eb;
+}
+
+/* Insets, Sub-panels & Nested Containers (#18191a wash or subtle dark) */
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/40,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/60,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/90,
+html.dark .dark\:bg-slate-950\/40 {
+  background-color: #18191a !important;
+  border-color: #393a3b !important;
+}
+
+/* Facebook Hover Overlay (#3a3b3c) */
+html.dark .hover\:bg-slate-50\/70:hover,
+html.dark .hover\:bg-slate-50\/80:hover,
+html.dark .hover\:bg-slate-100\/80:hover,
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .dark\:hover\:bg-slate-800\/50:hover,
+html.dark .dark\:hover\:bg-slate-700:hover,
+html.dark .dark\:hover\:bg-slate-700\/60:hover {
+  background-color: #3a3b3c !important;
+}
+
+/* Secondary surface / chips / badges (#3a3b3c) */
+html.dark .bg-slate-100,
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/90,
+html.dark .dark\:bg-slate-900\/90,
+html.dark .dark\:bg-slate-900 {
+  background-color: #3a3b3c !important;
+  border-color: #393a3b !important;
+}
+
+/* Facebook Borders & Dividers (#393a3b) */
+html.dark .border-slate-200,
+html.dark .border-slate-200\/90,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-200\/70,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-100,
+html.dark .dark\:border-slate-800,
+html.dark .dark\:border-slate-700,
+html.dark .dark\:border-slate-700\/60,
+html.dark .dark\:border-slate-700\/80,
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+html.dark .dark\:divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #393a3b !important;
+}
+
+/* Facebook Typography */
+/* Primary Text (#e4e6eb) */
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-black,
+html.dark .dark\:text-slate-100,
+html.dark .dark\:text-slate-200 {
+  color: #e4e6eb !important;
+}
+
+/* Secondary Text (#b0b3b8) */
+html.dark .text-slate-700,
+html.dark .text-slate-600,
+html.dark .dark\:text-slate-300,
+html.dark .dark\:text-slate-400 {
+  color: #b0b3b8 !important;
+}
+
+/* Placeholder & Muted Text (#8a8d91) */
+html.dark .text-slate-500,
+html.dark .text-slate-400,
+html.dark .dark\:text-slate-500,
+html.dark .dark\:text-slate-600 {
+  color: #8a8d91 !important;
+}
+
+/* Form Inputs, Dropdowns & Textareas (Facebook Input style #3a3b3c) */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #3a3b3c !important;
+  color: #e4e6eb !important;
+  border-color: #393a3b !important;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: #237227 !important;
+  box-shadow: 0 0 0 2px rgba(35, 114, 39, 0.45) !important;
+  background-color: #3a3b3c !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #8a8d91 !important;
+}
+
+html.dark select option {
+  background-color: #242526;
+  color: #e4e6eb;
+}
+
+/* Card Hover Elevation in Facebook Dark Mode */
+html.dark .hover\:border-slate-300\/80:hover {
+  border-color: #4e4f50 !important;
+}
+
+html.dark .hover\:shadow-md:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Facebook-Style Soft Accent Status Badges */
+html.dark .bg-emerald-50 {
+  background-color: rgba(49, 162, 76, 0.2) !important;
+  color: #31a24c !important;
+  border-color: rgba(49, 162, 76, 0.3) !important;
+}
+
+html.dark .bg-blue-50 {
+  background-color: rgba(46, 137, 255, 0.2) !important;
+  color: #2e89ff !important;
+  border-color: rgba(46, 137, 255, 0.3) !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(247, 177, 37, 0.2) !important;
+  color: #f7b125 !important;
+  border-color: rgba(247, 177, 37, 0.3) !important;
+}
+
+html.dark .bg-rose-50 {
+  background-color: rgba(240, 40, 73, 0.2) !important;
+  color: #f02849 !important;
+  border-color: rgba(240, 40, 73, 0.3) !important;
+}
+
+html.dark .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: #c084fc !important;
+  border-color: rgba(192, 132, 252, 0.3) !important;
+}
+
+html.dark .bg-teal-50 {
+  background-color: rgba(20, 184, 166, 0.2) !important;
+  color: #2dd4bf !important;
+  border-color: rgba(45, 212, 191, 0.3) !important;
+}
+
+/* Soft Accent Text */
+html.dark .text-amber-700,
+html.dark .text-amber-800 {
+  color: #f7b125 !important;
+}
+
+html.dark .text-rose-700,
+html.dark .text-rose-600 {
+  color: #f02849 !important;
+}
+
+html.dark .text-blue-700,
+html.dark .text-blue-600 {
+  color: #2e89ff !important;
+}
+
+html.dark .text-purple-700 {
+  color: #c084fc !important;
+}
+
+html.dark .text-teal-700 {
+  color: #2dd4bf !important;
+}
+
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 {
+  color: #31a24c !important;
+}
+
+/* Modals & Popovers Backdrop */
+html.dark .bg-slate-900\/40,
+html.dark .bg-slate-950\/70,
+html.dark .bg-slate-950\/45 {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Facebook Sleek Scrollbar */
+html.dark ::-webkit-scrollbar-track {
+  background: #18191a;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #3a3b3c;
+  border-radius: 9999px;
+  border: 2px solid #18191a;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4e4f50;
+}
+
+/* Toast Slide In from Right Animation */
+@keyframes slideInRight {
+  0% {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+  70% {
+    transform: translateX(-4px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
