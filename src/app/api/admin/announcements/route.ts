@@ -256,16 +256,72 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, is_pinned, is_archived } = body;
+    const { id, title, content, category, priority, target_audience, is_pinned, is_archived, rebroadcast } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Announcement ID is required' }, { status: 400 });
+    }
+
+    // Handle re-broadcasting an existing announcement to the mobile notifications table
+    if (rebroadcast) {
+      const existingRows = await query<any[]>(
+        'SELECT title, content, category FROM announcements WHERE slug = ? OR CAST(id AS CHAR) = ? LIMIT 1',
+        [id, id]
+      );
+      if (!existingRows || existingRows.length === 0) {
+        return NextResponse.json({ error: 'Announcement not found' }, { status: 404 });
+      }
+      const ann = existingRows[0];
+      await query(
+        `INSERT INTO notifications (user_id, actor_id, type, title, content, entity_name, is_read)
+         SELECT id, ?, 'announcement', ?, ?, 'broadcast', 0
+         FROM users WHERE role != 'admin'`,
+        [admin.id, ann.title, String(ann.content || '').slice(0, 255)]
+      );
+
+      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+      await logAdminActivity({
+        action: 'Announcement Push Re-Broadcasted',
+        detail: `Re-sent push notification for announcement "${ann.title}" to all mobile users`,
+        type: 'announcements',
+        user: admin.email || 'admin@localfarm.com',
+        ip: clientIp,
+        status: 'success'
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Push notification for "${ann.title}" re-broadcasted to all mobile users!`
+      });
     }
 
     const updates: string[] = [];
     const params: any[] = [];
     const changes: string[] = [];
 
+    if (typeof title === 'string' && title.trim()) {
+      updates.push('title = ?');
+      params.push(title.trim());
+      changes.push('title updated');
+    }
+    if (typeof content === 'string' && content.trim()) {
+      updates.push('content = ?');
+      params.push(content.trim());
+      changes.push('content updated');
+    }
+    if (typeof category === 'string' && category.trim()) {
+      updates.push('category = ?');
+      params.push(category.trim());
+      changes.push(`category set to ${category.trim()}`);
+    }
+    if (typeof priority === 'string' && priority.trim()) {
+      updates.push('priority = ?');
+      params.push(priority.trim());
+    }
+    if (typeof target_audience === 'string' && target_audience.trim()) {
+      updates.push('target_audience = ?');
+      params.push(target_audience.trim());
+    }
     if (typeof is_pinned === 'boolean') {
       updates.push('is_pinned = ?');
       params.push(is_pinned ? 1 : 0);
@@ -289,8 +345,8 @@ export async function PATCH(req: NextRequest) {
 
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
     await logAdminActivity({
-      action: 'Announcement Status Updated',
-      detail: `Announcement "${id}" was ${changes.join(' and ')}`,
+      action: 'Announcement Updated',
+      detail: `Announcement "${id}" was ${changes.join(', ') || 'modified'}`,
       type: 'announcements',
       user: admin.email || 'admin@localfarm.com',
       ip: clientIp,

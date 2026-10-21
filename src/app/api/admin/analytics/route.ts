@@ -171,25 +171,69 @@ export async function GET() {
         ORDER BY count DESC
       `);
       const totalCategorizedReports = repCatRows.reduce((sum: number, r: any) => sum + Number(r.count), 0) || 1;
-      const repColorMap: Record<string, string> = {
-        'Harrassment': '#ea4335',
-        'Scam / Fraud': '#fb8c00',
-        'Counterfeit Goods': '#fbbc04',
-        'Fake Identity': '#8e24aa',
-        'Phishing Links': '#1e88e5',
-        'Price Gouging': '#e91e63',
-        'Spam & Bots': '#546e7a',
+      
+      // Categorize into standard high-level moderation buckets:
+      // 1. Harassment & Abuse
+      // 2. Product & Trade
+      // 3. Fraud & Phishing
+      // 4. Spam & Other
+      const groupMap: Record<string, { count: number; color: string }> = {
+        'Harassment & Abuse': { count: 0, color: '#ea4335' },
+        'Product & Trade': { count: 0, color: '#f59e0b' },
+        'Fraud & Phishing': { count: 0, color: '#8b5cf6' },
+        'Spam & Other': { count: 0, color: '#64748b' },
       };
-      reportCategories = repCatRows.map((r: any) => {
-        const count = Number(r.count);
-        const percentage = Math.round((count / totalCategorizedReports) * 100);
+
+      for (const r of repCatRows) {
+        const reason = (r.reason || '').toLowerCase();
+        const cnt = Number(r.count) || 0;
+
+        if (reason.includes('harrass') || reason.includes('harass') || reason.includes('abuse') || reason.includes('threat')) {
+          groupMap['Harassment & Abuse'].count += cnt;
+        } else if (
+          reason.includes('counterfeit') || 
+          reason.includes('mislead') || 
+          reason.includes('gouging') || 
+          reason.includes('advertis') || 
+          reason.includes('chemical') || 
+          reason.includes('product') || 
+          reason.includes('listing')
+        ) {
+          groupMap['Product & Trade'].count += cnt;
+        } else if (
+          reason.includes('scam') || 
+          reason.includes('fraud') || 
+          reason.includes('phish') || 
+          reason.includes('identity') || 
+          reason.includes('impersonat')
+        ) {
+          groupMap['Fraud & Phishing'].count += cnt;
+        } else {
+          groupMap['Spam & Other'].count += cnt;
+        }
+      }
+
+      // Convert to array sorted by count descending
+      const formatted = Object.entries(groupMap)
+        .filter(([_, data]) => data.count > 0)
+        .sort((a, b) => b[1].count - a[1].count);
+
+      // Ensure percentage sums up smoothly to 100%
+      reportCategories = formatted.map(([name, data]) => {
+        const pct = Math.round((data.count / totalCategorizedReports) * 100);
         return {
-          name: r.reason,
-          count,
-          percentage,
-          color: repColorMap[r.reason] || '#237227',
+          name,
+          count: data.count,
+          percentage: pct,
+          color: data.color,
         };
       });
+
+      // If any rounding drift occurs, adjust largest group
+      const sumPct = reportCategories.reduce((acc, c) => acc + c.percentage, 0);
+      if (reportCategories.length > 0 && sumPct !== 100) {
+        reportCategories[0].percentage += (100 - sumPct);
+      }
     } catch {}
 
     return NextResponse.json({

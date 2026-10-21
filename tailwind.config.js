@@ -15,12 +15,12 @@ export default {
           200: '#bbf7d0',
           300: '#86efac',
           400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
-          950: '#052e16',
+          500: '#2d8c32',
+          600: '#237227', // Official Brand Primary Green
+          700: '#1c5c1f', // Darker shade for hover states
+          800: '#164919',
+          900: '#0f3311',
+          950: '#081d09',
         },
         harvest: {
           50: '#fffbeb',

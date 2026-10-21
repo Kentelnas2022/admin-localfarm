@@ -1,16 +1,13 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Users, 
   Activity, 
   UserPlus, 
   FileText, 
   Clock, 
-  UserCheck,
-  TrendingUp,
-  BarChart3,
-  PieChart as PieChartIcon
+  UserCheck
 } from 'lucide-react';
 
 export interface CategoryItem {
@@ -127,9 +124,9 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
   const maxGrowthValRaw = Math.max(...rawGrowthPoints.map((p) => p.cumulative), 10);
   const growthScaleCeil = Math.ceil(maxGrowthValRaw / 5) * 5 || 10;
 
-  // Chart alignment with title "Farmer Growth" (starts at 52px inside card)
-  const growthLeft = 52;
-  const growthRight = Math.max(growthLeft + 300, growthWidth - 24);
+  // Chart alignment with flush title "Farmer Growth" (clean 44px axis gutter)
+  const growthLeft = 44;
+  const growthRight = Math.max(growthLeft + 300, growthWidth - 16);
   const growthChartTop = 28;
   const growthChartBottom = 220;
   const growthChartHeight = growthChartBottom - growthChartTop; // 192px
@@ -181,18 +178,35 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
     };
   });
 
-  // --- Dynamic Report Categories (from MySQL reports.reason) ---
+  // --- Dynamic Report Categories (Consolidated into 4 high-level categories for a clean 2x2 grid) ---
   const defaultReportCategories: CategoryItem[] = [
-    { name: 'Harrassment', count: 6, percentage: 40, color: '#ea4335' },
-    { name: 'Scam / Fraud', count: 3, percentage: 20, color: '#fb8c00' },
-    { name: 'Counterfeit Goods', count: 2, percentage: 14, color: '#fbbc04' },
-    { name: 'Fake Identity', count: 2, percentage: 13, color: '#8e24aa' },
-    { name: 'Other', count: 2, percentage: 13, color: '#546e7a' },
+    { name: 'Harassment & Abuse', count: 6, percentage: 40, color: '#ea4335' },
+    { name: 'Product & Trade', count: 5, percentage: 33, color: '#f59e0b' },
+    { name: 'Fraud & Phishing', count: 3, percentage: 20, color: '#8b5cf6' },
+    { name: 'Spam & Other', count: 1, percentage: 7, color: '#64748b' },
   ];
 
-  const reportCategories = analytics?.reportCategories && analytics.reportCategories.length > 0
+  const rawReportCategories = analytics?.reportCategories && analytics.reportCategories.length > 0
     ? analytics.reportCategories
     : defaultReportCategories;
+
+  // Defensive consolidation: ensure at most 4 categories to maintain a spacious, non-redundant 2x2 grid
+  const reportCategories: CategoryItem[] = useMemo(() => {
+    if (rawReportCategories.length <= 4) return rawReportCategories;
+    const top3 = rawReportCategories.slice(0, 3);
+    const remainder = rawReportCategories.slice(3);
+    const otherCount = remainder.reduce((s, c) => s + c.count, 0);
+    const otherPct = remainder.reduce((s, c) => s + c.percentage, 0);
+    return [
+      ...top3,
+      {
+        name: 'Other Violations',
+        count: otherCount,
+        percentage: Math.max(1, otherPct),
+        color: '#64748b',
+      },
+    ];
+  }, [rawReportCategories]);
 
   let repAccumulatedPct = 0;
   const reportSegments = reportCategories.map((cat) => {
@@ -244,9 +258,9 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
   );
   const activityScaleCeil = Math.ceil(maxActivityRaw / 5) * 5 || 10;
 
-  // Chart alignment with title "Content Activity" (starts at 52px inside card)
-  const activityLeft = 52;
-  const activityRight = Math.max(activityLeft + 300, activityWidth - 24);
+  // Chart alignment with flush title "Content Activity" (clean 44px axis gutter)
+  const activityLeft = 44;
+  const activityRight = Math.max(activityLeft + 300, activityWidth - 16);
   const activityChartTop = 32;
   const activityChartBottom = 265;
   const maxBarHeight = activityChartBottom - activityChartTop; // 233px tall bars!
@@ -377,20 +391,15 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
         {/* Modern Farmer Growth Line Chart */}
-        <div className="lg:col-span-8 bg-white rounded-2xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between h-[480px] max-h-[480px] overflow-hidden select-none">
+        <div className="lg:col-span-8 bg-white dark:bg-[#242526] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-[#393a3b] shadow-sm flex flex-col justify-between h-[480px] max-h-[480px] overflow-hidden select-none">
           <div className="flex items-center justify-between mb-2 shrink-0 h-10">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[#237227]/15 text-[#237227] flex items-center justify-center shrink-0">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 leading-none">Farmer Growth</h3>
-                <p className="text-xs text-slate-400 mt-1">Monthly new farmer registrations in 2026</p>
-              </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">Farmer Growth</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Monthly new farmer registrations in 2026</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#237227] bg-[#237227]/10 border border-[#237227]/20 px-3 py-1 rounded-full shadow-2xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#237227] animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-farm-700 dark:text-farm-300 bg-farm-50 dark:bg-farm-950/60 border border-farm-200 dark:border-farm-800/80 px-3 py-1 rounded-full shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-farm-600 animate-pulse" />
                 +36% YoY
               </span>
             </div>
@@ -413,19 +422,19 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                 </filter>
               </defs>
 
-              {/* Grid Lines (Subtle dashed style, aligned from 52px under title to right edge) */}
+              {/* Grid Lines (Subtle dashed style, aligned from 44px under title to right edge) */}
               <line x1={growthLeft} y1="28" x2={growthRight} y2="28" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
               <line x1={growthLeft} y1="76" x2={growthRight} y2="76" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
               <line x1={growthLeft} y1="124" x2={growthRight} y2="124" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
               <line x1={growthLeft} y1="172" x2={growthRight} y2="172" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
               <line x1={growthLeft} y1="220" x2={growthRight} y2="220" stroke="var(--chart-axis)" strokeWidth="1" />
 
-              {/* Dynamic Y-axis Labels in 44px gutter under icon */}
-              <text x="44" y="32" textAnchor="end" fontSize="11" fontWeight="600" fill="var(--chart-text)">{growthScaleCeil}</text>
-              <text x="44" y="80" textAnchor="end" fontSize="11" fontWeight="600" fill="var(--chart-text)">{Math.round(growthScaleCeil * 0.75)}</text>
-              <text x="44" y="128" textAnchor="end" fontSize="11" fontWeight="600" fill="var(--chart-text)">{Math.round(growthScaleCeil * 0.5)}</text>
-              <text x="44" y="176" textAnchor="end" fontSize="11" fontWeight="600" fill="var(--chart-text)">{Math.round(growthScaleCeil * 0.25)}</text>
-              <text x="44" y="224" textAnchor="end" fontSize="11" fontWeight="600" fill="var(--chart-text)">0</text>
+              {/* Dynamic Y-axis Labels in 36px gutter */}
+              <text x="36" y="32" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{growthScaleCeil}</text>
+              <text x="36" y="80" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{Math.round(growthScaleCeil * 0.75)}</text>
+              <text x="36" y="128" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{Math.round(growthScaleCeil * 0.5)}</text>
+              <text x="36" y="176" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{Math.round(growthScaleCeil * 0.25)}</text>
+              <text x="36" y="224" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">0</text>
 
               {/* Area Gradient Fill */}
               <path d={areaPath} fill="url(#farmerGrowthGradient)" />
@@ -532,12 +541,12 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
           </div>
 
           {/* Bottom Chart Footer / Active Tooltip Info (Fixed height h-8, never wraps or expands) */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0 h-8">
+          <div className="pt-3 border-t border-slate-100 dark:border-[#393a3b] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0 h-8">
             <div className="flex items-center gap-2 truncate pr-2">
-              <span className="h-2 w-2 rounded-full bg-[#237227] shrink-0" />
+              <span className="h-2 w-2 rounded-full bg-farm-600 shrink-0" />
               <span className="truncate">
                 {hoveredGrowthIndex !== null && growthPlotPoints[hoveredGrowthIndex] ? (
-                  <strong className="text-slate-800">
+                  <strong className="text-slate-800 dark:text-slate-200">
                     {growthPlotPoints[hoveredGrowthIndex].label}: {growthPlotPoints[hoveredGrowthIndex].cumulative} cumulative farmers
                   </strong>
                 ) : (
@@ -545,47 +554,42 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                 )}
               </span>
             </div>
-            <div className="font-semibold text-slate-600 shrink-0">
-              Total Community: <span className="text-[#237227] font-bold">{totalFarmers} Farmers</span>
+            <div className="font-semibold text-slate-600 dark:text-slate-400 shrink-0">
+              Total Community: <span className="text-farm-600 font-bold">{totalFarmers} Farmers</span>
             </div>
           </div>
         </div>
 
         {/* Categories Donut Card (Fixed height h-[480px] - NEVER shifts or moves) */}
-        <div className="lg:col-span-4 bg-white rounded-2xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between h-[480px] max-h-[480px] overflow-hidden">
-          <div className="flex items-center justify-between shrink-0 h-9">
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                <PieChartIcon className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  {activeCategoryView === 'posts' ? 'Post Categories' : 'Report Categories'}
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  {activeCategoryView === 'posts' ? 'Farm produce & post breakdown' : 'Flagged content distribution'}
-                </p>
-              </div>
+        <div className="lg:col-span-4 bg-white dark:bg-[#242526] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-[#393a3b] shadow-sm flex flex-col justify-between h-[480px] max-h-[480px] overflow-hidden">
+          <div className="flex items-center justify-between shrink-0 h-10">
+            <div>
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
+                {activeCategoryView === 'posts' ? 'Post Categories' : 'Report Categories'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {activeCategoryView === 'posts' ? 'Farm produce & post breakdown' : 'Flagged content distribution'}
+              </p>
             </div>
 
             {/* Switcher Pill */}
-            <div className="flex items-center bg-slate-100/80 p-0.5 rounded-lg text-[10px] font-semibold">
+            <div className="flex items-center bg-slate-100/90 dark:bg-[#18191a] p-1 rounded-xl text-xs font-semibold border border-slate-200/80 dark:border-[#3a3b3c]">
               <button
                 onClick={() => setActiveCategoryView('posts')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   activeCategoryView === 'posts'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-[#2e2f30] text-slate-900 dark:text-white font-bold shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                 }`}
               >
                 Posts
               </button>
               <button
                 onClick={() => setActiveCategoryView('reports')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   activeCategoryView === 'reports'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-[#2e2f30] text-slate-900 dark:text-white font-bold shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                 }`}
               >
                 Reports
@@ -620,7 +624,7 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                   </svg>
                   {/* Center Text inside Donut Hole */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                    <span className="text-3xl font-black text-slate-900 leading-none tracking-tight">
+                    <span className="text-3xl font-black text-slate-900 dark:text-white leading-none tracking-tight">
                       {totalPosts}
                     </span>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">
@@ -650,7 +654,7 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                     ))}
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                    <span className="text-3xl font-black text-slate-900 leading-none tracking-tight">
+                    <span className="text-3xl font-black text-slate-900 dark:text-white leading-none tracking-tight">
                       {totalReportCount}
                     </span>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">
@@ -663,7 +667,7 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
           </div>
 
           {/* Fixed-Height Legend Container (Breathable, comfortable 2-column grid) */}
-          <div className="border-t border-slate-100 pt-3.5 shrink-0 flex flex-col justify-center">
+          <div className="border-t border-slate-100 dark:border-[#393a3b] pt-3.5 shrink-0 flex flex-col justify-center">
             {activeCategoryView === 'posts' ? (
               <div className="grid grid-cols-2 gap-3">
                 {postCategories.map((cat, idx) => (
@@ -688,22 +692,24 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 {reportCategories.map((item, idx) => (
                   <div 
                     key={idx} 
-                    className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs"
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 transition-all hover:bg-slate-100/80 dark:hover:bg-slate-700/60 shadow-2xs"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span 
-                        className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-white dark:ring-slate-700" 
+                        className="h-3 w-3 rounded-full shrink-0 ring-2 ring-white dark:ring-slate-700 shadow-xs" 
                         style={{ backgroundColor: item.color }} 
                       />
-                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">{item.name}</span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate tracking-tight">{item.name}</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
-                      <span className="text-[10px] text-slate-400 font-mono">({item.count})</span>
-                      <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">{item.percentage}%</span>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-400 font-mono">({item.count})</span>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/90 px-2 py-0.5 rounded-lg border border-slate-200/80 dark:border-slate-700 shadow-2xs">
+                        {item.percentage}%
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -714,85 +720,110 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
 
       </div>
 
-      {/* 3. BOTTOM ROW: CONTENT ACTIVITY GROUPED BAR CHART */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between h-[540px] max-h-[540px] overflow-hidden select-none">
+      {/* 3. BOTTOM ROW: CONTENT ACTIVITY GROUPED BAR CHART (MODERN & ALIVE ANALYTICS) */}
+      <div className="bg-white dark:bg-[#242526] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-[#393a3b] shadow-sm flex flex-col justify-between h-[560px] max-h-[560px] overflow-hidden select-none transition-all">
+        {/* Top Header & Segmented Controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0 mb-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-[#237227]/15 text-[#237227] flex items-center justify-center shrink-0">
-              <BarChart3 className="h-5 w-5" />
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
+                Content Activity
+              </h3>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-farm-50 text-farm-800 dark:bg-farm-950/60 dark:text-farm-300 border border-farm-200 dark:border-farm-800/80 shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-farm-600 animate-pulse" />
+                Live Activity
+              </span>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 leading-none">Content Activity</h3>
-              <p className="text-xs text-slate-400 mt-1">Monthly breakdown of posts, comments, and shares (2026)</p>
-            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Monthly breakdown of posts, comments, and shares (2026)
+            </p>
           </div>
 
           {/* Interactive Metric Filter Switcher */}
-          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
+          <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-[#18191a] p-1.5 rounded-2xl border border-slate-200/80 dark:border-[#3a3b3c] shadow-2xs">
             <button
               onClick={() => setActivityFilter('all')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activityFilter === 'all'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white dark:bg-[#2e2f30] text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
               All Activity
             </button>
             <button
               onClick={() => setActivityFilter('posts')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activityFilter === 'posts'
-                  ? 'bg-[#237227] text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-farm-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <span className={`h-2 w-2 rounded-full ${activityFilter === 'posts' ? 'bg-white' : 'bg-[#237227]'}`} />
-              {totalPosts} Posts
+              <span className={`h-2 w-2 rounded-full ${activityFilter === 'posts' ? 'bg-white' : 'bg-farm-600'}`} />
+              <span>{totalPosts} Posts</span>
             </button>
             <button
               onClick={() => setActivityFilter('comments')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activityFilter === 'comments'
-                  ? 'bg-emerald-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-teal-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <span className={`h-2 w-2 rounded-full ${activityFilter === 'comments' ? 'bg-white' : 'bg-emerald-500'}`} />
-              {totalComments} Comments
+              <span className={`h-2 w-2 rounded-full ${activityFilter === 'comments' ? 'bg-white' : 'bg-teal-500'}`} />
+              <span>{totalComments} Comments</span>
             </button>
             <button
               onClick={() => setActivityFilter('shares')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activityFilter === 'shares'
-                  ? 'bg-amber-500 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <span className={`h-2 w-2 rounded-full ${activityFilter === 'shares' ? 'bg-white' : 'bg-amber-500'}`} />
-              {totalShares} Shares
+              <span>{totalShares} Shares</span>
             </button>
           </div>
         </div>
 
-        {/* Clean, Big, High-Definition Bar Chart Canvas */}
+        {/* Clean, Alive, High-Definition Bar Chart Canvas */}
         <div ref={activityContainerRef} className="w-full h-80 relative my-auto">
           <svg className="w-full h-full" viewBox={`0 0 ${activityWidth} 310`} fill="none">
-            {/* Grid Lines (Aligned from 52px under title to right edge) */}
-            <line x1={activityLeft} y1="32" x2={activityRight} y2="32" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
-            <line x1={activityLeft} y1="90.25" x2={activityRight} y2="90.25" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
-            <line x1={activityLeft} y1="148.5" x2={activityRight} y2="148.5" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
-            <line x1={activityLeft} y1="206.75" x2={activityRight} y2="206.75" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 4" />
+            {/* Definitions for Modern Gradients and Shadows */}
+            <defs>
+              <linearGradient id="barGradPosts" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#22c55e" />
+                <stop offset="100%" stopColor="#15803d" />
+              </linearGradient>
+              <linearGradient id="barGradComments" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#14b8a6" />
+                <stop offset="100%" stopColor="#0f766e" />
+              </linearGradient>
+              <linearGradient id="barGradShares" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#fbbf24" />
+                <stop offset="100%" stopColor="#d97706" />
+              </linearGradient>
+              <filter id="barShadow" x="-15%" y="-15%" width="130%" height="130%">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.15" />
+              </filter>
+            </defs>
+
+            {/* Grid Lines */}
+            <line x1={activityLeft} y1="32" x2={activityRight} y2="32" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 6" />
+            <line x1={activityLeft} y1="90.25" x2={activityRight} y2="90.25" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 6" />
+            <line x1={activityLeft} y1="148.5" x2={activityRight} y2="148.5" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 6" />
+            <line x1={activityLeft} y1="206.75" x2={activityRight} y2="206.75" stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="4 6" />
             <line x1={activityLeft} y1="265" x2={activityRight} y2="265" stroke="var(--chart-axis)" strokeWidth="1.5" />
 
-            {/* Dynamic Y-axis Labels in 44px gutter under icon */}
-            <text x="44" y="36" textAnchor="end" fontSize="11.5" fontWeight="600" fill="var(--chart-text)">{activityScaleCeil}</text>
-            <text x="44" y="94" textAnchor="end" fontSize="11.5" fontWeight="600" fill="var(--chart-text)">{Math.round(activityScaleCeil * 0.75)}</text>
-            <text x="44" y="152" textAnchor="end" fontSize="11.5" fontWeight="600" fill="var(--chart-text)">{Math.round(activityScaleCeil * 0.5)}</text>
-            <text x="44" y="210" textAnchor="end" fontSize="11.5" fontWeight="600" fill="var(--chart-text)">{Math.round(activityScaleCeil * 0.25)}</text>
-            <text x="44" y="269" textAnchor="end" fontSize="11.5" fontWeight="600" fill="var(--chart-text)">0</text>
+            {/* Dynamic Y-axis Labels in 36px gutter */}
+            <text x="36" y="36" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{activityScaleCeil}</text>
+            <text x="36" y="94" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{Math.round(activityScaleCeil * 0.75)}</text>
+            <text x="36" y="152" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{Math.round(activityScaleCeil * 0.5)}</text>
+            <text x="36" y="210" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">{Math.round(activityScaleCeil * 0.25)}</text>
+            <text x="36" y="269" textAnchor="end" fontSize="11" fontWeight="600" className="font-mono" fill="var(--chart-text)">0</text>
 
-            {/* Dynamic Month Columns & Big Bars */}
+            {/* Dynamic Month Columns & Alive Gradient Bars */}
             {activityData.map((d, i) => {
               const slotStartX = activityLeft + i * monthSlotWidth;
               const slotCenterX = slotStartX + monthSlotWidth / 2;
@@ -825,19 +856,23 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
               // Single mode values
               let singleVal = 0;
               let singleH = 2;
-              let singleColor = '#237227';
+              let singleGrad = 'url(#barGradPosts)';
+              let singleTextColor = '#16a34a';
               if (activityFilter === 'posts') {
                 singleVal = d.posts;
                 singleH = hPosts;
-                singleColor = '#237227';
+                singleGrad = 'url(#barGradPosts)';
+                singleTextColor = '#16a34a';
               } else if (activityFilter === 'comments') {
                 singleVal = d.comments;
                 singleH = hComments;
-                singleColor = '#10b981';
+                singleGrad = 'url(#barGradComments)';
+                singleTextColor = '#0d9488';
               } else if (activityFilter === 'shares') {
                 singleVal = d.shares;
                 singleH = hShares;
-                singleColor = '#f59e0b';
+                singleGrad = 'url(#barGradShares)';
+                singleTextColor = '#d97706';
               }
               const singleY = activityChartBottom - singleH;
 
@@ -854,24 +889,28 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                     y="26"
                     width={slotBgWidth}
                     height="242"
-                    rx="8"
+                    rx="10"
                     fill={isHovered ? "var(--chart-slot-hover)" : "var(--chart-slot-bg)"}
-                    opacity={isHovered ? "0.95" : "0.7"}
+                    stroke={isHovered ? "var(--chart-axis)" : "transparent"}
+                    strokeWidth="1"
+                    strokeDasharray={isHovered ? "3 3" : undefined}
+                    opacity={isHovered ? "0.95" : "0.6"}
                     className="transition-all duration-200"
                   />
 
                   {/* BARS: SINGLE FILTER MODE OR ALL GROUPED MODE */}
                   {isSingleMode ? (
-                    // BIG PROMINENT SINGLE BAR
+                    // PROMINENT SINGLE GRADIENT BAR
                     <g>
                       <rect
                         x={singleBarX}
                         y={singleY}
                         width={singleBarWidth}
                         height={singleH}
-                        rx="5"
-                        fill={singleColor}
-                        opacity={isHovered ? 1 : 0.9}
+                        rx="6"
+                        fill={singleGrad}
+                        filter="url(#barShadow)"
+                        opacity={isHovered ? 1 : 0.95}
                         className="transition-all duration-200"
                       />
                       {/* Bold Count Badge on top of bar */}
@@ -882,82 +921,89 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                           textAnchor="middle"
                           fontSize="11"
                           fontWeight="800"
-                          fill={singleColor}
+                          fill={singleTextColor}
+                          className="font-mono"
                         >
                           {singleVal}
                         </text>
                       )}
                     </g>
                   ) : (
-                    // GROUPED 3-BAR MODE (Wide, bold, rounded caps)
+                    // GROUPED 3-BAR MODE WITH RICH GRADIENTS & ROUNDED CAPS
                     <g>
-                      {/* Posts Bar (#237227) */}
+                      {/* Posts Bar */}
                       <rect
                         x={clusterStartX}
                         y={yPosts}
                         width={barWidth}
                         height={hPosts}
-                        rx="3.5"
-                        fill="#237227"
-                        opacity={isHovered ? 1 : 0.9}
+                        rx="4"
+                        fill="url(#barGradPosts)"
+                        filter="url(#barShadow)"
+                        opacity={isHovered ? 1 : 0.92}
                         className="transition-all duration-200"
                       />
                       {d.posts > 0 && (
                         <text
                           x={clusterStartX + barWidth / 2}
-                          y={yPosts - 4}
+                          y={yPosts - 5}
                           textAnchor="middle"
-                          fontSize="9.5"
-                          fontWeight="700"
-                          fill="#237227"
+                          fontSize="10"
+                          fontWeight="800"
+                          fill="#15803d"
+                          className="font-mono"
                         >
                           {d.posts}
                         </text>
                       )}
 
-                      {/* Comments Bar (#10b981) */}
+                      {/* Comments Bar */}
                       <rect
                         x={clusterStartX + barWidth + barGap}
                         y={yComments}
                         width={barWidth}
                         height={hComments}
-                        rx="3.5"
-                        fill="#10b981"
-                        opacity={isHovered ? 1 : 0.9}
+                        rx="4"
+                        fill="url(#barGradComments)"
+                        filter="url(#barShadow)"
+                        opacity={isHovered ? 1 : 0.92}
                         className="transition-all duration-200"
                       />
                       {d.comments > 0 && (
                         <text
                           x={clusterStartX + barWidth * 1.5 + barGap}
-                          y={yComments - 4}
+                          y={yComments - 5}
                           textAnchor="middle"
-                          fontSize="9.5"
-                          fontWeight="700"
-                          fill="#10b981"
+                          fontSize="10"
+                          fontWeight="800"
+                          fill="#0f766e"
+                          className="font-mono"
                         >
                           {d.comments}
                         </text>
                       )}
 
-                      {/* Shares Bar (#f59e0b) */}
+                      {/* Shares Bar */}
                       <rect
                         x={clusterStartX + (barWidth + barGap) * 2}
                         y={yShares}
                         width={barWidth}
                         height={hShares}
-                        rx="3.5"
-                        fill="#f59e0b"
-                        opacity={isHovered ? 1 : 0.9}
+                        rx="4"
+                        fill="url(#barGradShares)"
+                        filter="url(#barShadow)"
+                        opacity={isHovered ? 1 : 0.92}
                         className="transition-all duration-200"
                       />
                       {d.shares > 0 && (
                         <text
                           x={clusterStartX + barWidth * 2.5 + barGap * 2}
-                          y={yShares - 4}
+                          y={yShares - 5}
                           textAnchor="middle"
-                          fontSize="9.5"
-                          fontWeight="700"
-                          fill="#f59e0b"
+                          fontSize="10"
+                          fontWeight="800"
+                          fill="#b45309"
+                          className="font-mono"
                         >
                           {d.shares}
                         </text>
@@ -971,7 +1017,7 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                     y="288" 
                     textAnchor="middle" 
                     fontSize="11.5" 
-                    fontWeight={isHovered ? "700" : "600"} 
+                    fontWeight={isHovered ? "800" : "600"} 
                     fill={isHovered ? "var(--chart-axis)" : "var(--chart-text)"}
                     className="transition-colors"
                   >
@@ -982,25 +1028,27 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
                   {isHovered && (
                     <g className="pointer-events-none transition-all duration-150">
                       <rect
-                        x={Math.max(8, Math.min(activityWidth - 170, slotCenterX - 85))}
-                        y="6"
-                        width="170"
-                        height="26"
-                        rx="6"
-                        fill="#242526"
+                        x={Math.max(10, Math.min(activityWidth - 210, slotCenterX - 105))}
+                        y="4"
+                        width="210"
+                        height="28"
+                        rx="8"
+                        fill="#18191a"
                         stroke="#393a3b"
                         strokeWidth="1"
-                        opacity="0.98"
+                        opacity="0.96"
+                        className="shadow-2xl"
                       />
                       <text
-                        x={Math.max(8, Math.min(activityWidth - 170, slotCenterX - 85)) + 85}
-                        y="23"
+                        x={Math.max(10, Math.min(activityWidth - 210, slotCenterX - 105)) + 105}
+                        y="22"
                         textAnchor="middle"
                         fill="#ffffff"
-                        fontSize="10"
-                        fontWeight="600"
+                        fontSize="11"
+                        fontWeight="700"
+                        className="font-mono"
                       >
-                        {d.label}: {d.posts} Posts · {d.comments} Com · {d.shares} Shr
+                        {d.label}: {d.posts} Posts · {d.comments} Comments · {d.shares} Shares
                       </text>
                     </g>
                   )}
@@ -1010,35 +1058,47 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
           </svg>
         </div>
 
-        {/* Modern Interactive Legend with View Click Triggers (Fixed height h-9) */}
-        <div className="flex items-center justify-center gap-8 pt-3 border-t border-slate-100 text-xs font-semibold text-slate-600 shrink-0 h-9">
-          <button
-            onClick={() => setActivityFilter(activityFilter === 'posts' ? 'all' : 'posts')}
-            className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-all ${
-              activityFilter === 'posts' ? 'bg-[#237227]/10 text-[#237227] font-bold' : 'hover:bg-slate-50'
-            }`}
-          >
-            <span className="h-3 w-3 rounded-sm bg-[#237227] shadow-2xs" />
-            <span>Posts ({totalPosts})</span>
-          </button>
-          <button
-            onClick={() => setActivityFilter(activityFilter === 'comments' ? 'all' : 'comments')}
-            className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-all ${
-              activityFilter === 'comments' ? 'bg-emerald-50 text-emerald-700 font-bold' : 'hover:bg-slate-50'
-            }`}
-          >
-            <span className="h-3 w-3 rounded-sm bg-[#10b981] shadow-2xs" />
-            <span>Comments ({totalComments})</span>
-          </button>
-          <button
-            onClick={() => setActivityFilter(activityFilter === 'shares' ? 'all' : 'shares')}
-            className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-all ${
-              activityFilter === 'shares' ? 'bg-amber-50 text-amber-700 font-bold' : 'hover:bg-slate-50'
-            }`}
-          >
-            <span className="h-3 w-3 rounded-sm bg-[#f59e0b] shadow-2xs" />
-            <span>Shares ({totalShares})</span>
-          </button>
+        {/* Modern Interactive Legend with View Click Triggers */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-3.5 border-t border-slate-100 dark:border-[#393a3b] text-xs font-semibold shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            <button
+              onClick={() => setActivityFilter(activityFilter === 'posts' ? 'all' : 'posts')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                activityFilter === 'posts' 
+                  ? 'bg-farm-50 dark:bg-farm-950/50 border-farm-300 dark:border-farm-800 text-farm-800 dark:text-farm-200 font-bold shadow-2xs' 
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#18191a]'
+              }`}
+            >
+              <span className="h-3 w-3 rounded-md bg-gradient-to-br from-emerald-500 to-farm-700 shadow-2xs" />
+              <span>Posts ({totalPosts})</span>
+            </button>
+            <button
+              onClick={() => setActivityFilter(activityFilter === 'comments' ? 'all' : 'comments')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                activityFilter === 'comments' 
+                  ? 'bg-teal-50 dark:bg-teal-950/50 border-teal-300 dark:border-teal-800 text-teal-800 dark:text-teal-200 font-bold shadow-2xs' 
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#18191a]'
+              }`}
+            >
+              <span className="h-3 w-3 rounded-md bg-gradient-to-br from-teal-400 to-teal-700 shadow-2xs" />
+              <span>Comments ({totalComments})</span>
+            </button>
+            <button
+              onClick={() => setActivityFilter(activityFilter === 'shares' ? 'all' : 'shares')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                activityFilter === 'shares' 
+                  ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 font-bold shadow-2xs' 
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#18191a]'
+              }`}
+            >
+              <span className="h-3 w-3 rounded-md bg-gradient-to-br from-amber-400 to-amber-600 shadow-2xs" />
+              <span>Shares ({totalShares})</span>
+            </button>
+          </div>
+
+          <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+            Total Interactions: <strong className="text-slate-800 dark:text-slate-200 font-bold">{totalPosts + totalComments + totalShares}</strong>
+          </div>
         </div>
       </div>
     </div>
