@@ -24,7 +24,7 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className="font-['Plus_Jakarta_Sans',sans-serif] antialiased selection:bg-farm-500 selection:text-white bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors"
+        className="font-['Plus_Jakarta_Sans',sans-serif] antialiased selection:bg-farm-500 selection:text-white bg-white text-slate-900 transition-colors"
       >
         <ThemeProvider>
           {children}

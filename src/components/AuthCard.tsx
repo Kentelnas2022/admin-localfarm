@@ -3,14 +3,16 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
+import { LocalFarmLogoIcon } from './ui/LocalFarmLogo';
 
 interface AuthCardProps {
   onOpenAdminPreview?: () => void;
   onForgotPassword?: () => void;
   inputRef?: React.RefObject<HTMLInputElement | null>;
+  embedded?: boolean;
 }
 
-export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: AuthCardProps) {
+export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embedded = false }: AuthCardProps) {
   const router = useRouter();
   const [email, setEmail] = useState('admin@localfarm.com');
   const [password, setPassword] = useState('admin123');
@@ -81,32 +83,45 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: Aut
   };
 
   return (
-    <div className="w-full max-w-[380px] sm:max-w-[390px] rounded-2xl border border-slate-200/90 bg-white p-7 sm:p-8 shadow-[0_12px_32px_rgba(0,0,0,0.04)] text-left relative transition-all">
-      {/* Title & Subtitle: Formal, Calm & Comfortable */}
+    <div
+      className={
+        embedded
+          ? 'w-full text-left relative transition-all'
+          : 'w-full max-w-[400px] rounded-2xl border border-slate-200/90 bg-white p-7 sm:p-8 shadow-[0_12px_32px_rgba(0,0,0,0.06)] text-left relative transition-all'
+      }
+    >
+      {/* Formal, Modern Header */}
       <div className="text-center pb-1">
-        <h3 className="text-xl font-bold text-slate-900 tracking-tight">Welcome Back!</h3>
+        <div className="flex justify-center mb-2.5">
+          <div className="h-10 w-10 rounded-xl bg-[#237227]/10 flex items-center justify-center p-2">
+            <LocalFarmLogoIcon className="h-6 w-6" />
+          </div>
+        </div>
+        <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          Administrator Sign In
+        </h3>
         <p className="mt-1 text-xs text-slate-500 font-normal">
-          Login to continue to Local Farm
+          Enter your credentials to access the Local Farm management portal
         </p>
       </div>
 
       {/* Error Alert Box */}
       {errorMsg && (
-        <div className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-700 leading-snug">
+        <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 leading-snug">
           <AlertCircle className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {/* Form */}
-      <form onSubmit={handleLogin} className="mt-5 space-y-4">
+      <form onSubmit={handleLogin} className="mt-6 space-y-4">
         {/* Email Field */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-            Email
+            Email Address
           </label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
               <Mail className="h-4 w-4" />
             </div>
             <input
@@ -116,7 +131,7 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: Aut
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@localfarm.com"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/40 py-2.5 pl-9 pr-3 text-xs font-medium text-slate-900 placeholder-slate-400 outline-none transition-all focus:bg-white focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/15"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 focus:bg-white py-2.5 pl-10 pr-3.5 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none transition-all focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/15"
             />
           </div>
         </div>
@@ -127,7 +142,7 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: Aut
             Password
           </label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
               <Lock className="h-4 w-4" />
             </div>
             <input
@@ -136,12 +151,12 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: Aut
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/40 py-2.5 pl-9 pr-9 text-xs font-medium text-slate-900 placeholder-slate-400 outline-none transition-all focus:bg-white focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/15"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 focus:bg-white py-2.5 pl-10 pr-10 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none transition-all focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/15"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -158,43 +173,43 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: Aut
               onChange={(e) => setRememberMe(e.target.checked)}
               className="h-3.5 w-3.5 rounded border-slate-300 text-[#237227] focus:ring-[#237227] cursor-pointer"
             />
-            <span className="text-[11px] font-medium">Remember me</span>
+            <span className="text-xs font-medium">Remember me</span>
           </label>
           <button
             type="button"
             onClick={onForgotPassword}
-            className="text-[11px] font-medium text-[#237227] hover:underline cursor-pointer"
+            className="text-xs font-medium text-slate-500 hover:text-[#237227] transition-colors cursor-pointer hover:underline"
           >
-            Forgot Password?
+            Forgot password?
           </button>
         </div>
 
-        {/* Login Button */}
+        {/* Formal Clean Sign In Button */}
         <button
           type="submit"
           disabled={isLoading || isGoogleLoading || isSuccess}
-          className="w-full rounded-xl bg-[#237227] hover:bg-[#1c5c1f] py-2.5 text-xs font-bold text-white shadow-xs hover:shadow transition-all active:scale-[0.98] disabled:opacity-75 cursor-pointer"
+          className="w-full rounded-xl bg-[#237227] hover:bg-[#1b5e20] py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.99] disabled:opacity-70 cursor-pointer mt-2"
         >
           {isLoading ? (
             <span className="flex items-center justify-center gap-2">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              <span>Verifying credentials...</span>
+              <span>Authenticating...</span>
             </span>
           ) : isSuccess ? (
             <span className="flex items-center justify-center gap-1.5">
               <CheckCircle className="h-4 w-4" /> Access Granted! Redirecting...
             </span>
           ) : (
-            'Login'
+            'Sign In'
           )}
         </button>
       </form>
 
-      {/* OR Divider */}
+      {/* Formal Divider */}
       <div className="relative my-4 flex items-center justify-center">
         <div className="w-full border-t border-slate-200" />
         <span className="absolute bg-white px-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          OR
+          or continue with
         </span>
       </div>
 
@@ -203,7 +218,7 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: Aut
         type="button"
         onClick={handleGoogleOneClick}
         disabled={isLoading || isGoogleLoading || isSuccess}
-        className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50/80 py-2.5 text-xs font-medium text-slate-700 shadow-2xs transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
         title="Sign in with authorized Google account"
       >
         {isGoogleLoading ? (
@@ -237,8 +252,11 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef }: Aut
       </button>
 
       {/* Admin Notice Footer */}
-      <div className="mt-4 text-center text-[11px] text-slate-400 font-normal">
-        Administrative Portal • Member app on Mobile
+      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+        <span>Administrative Portal</span>
+        <span>
+          Test admin: <code className="font-mono text-[#237227] bg-slate-100 px-1.5 py-0.5 rounded">admin123</code>
+        </span>
       </div>
     </div>
   );

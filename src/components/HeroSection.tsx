@@ -1,106 +1,87 @@
 'use client';
 
 import React from 'react';
-import { Smartphone, Play, ArrowRight } from 'lucide-react';
-import { AuthCard } from './AuthCard';
+import { Smartphone, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Reveal } from './ui/Reveal';
 
 interface HeroSectionProps {
-  onOpenAdminPreview?: () => void;
+  onOpenLogin?: () => void;
   onExploreMore?: () => void;
   onGetAppClick?: () => void;
   onForgotPassword?: () => void;
   loginInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-export function HeroSection({
-  onOpenAdminPreview,
-  onExploreMore,
-  onGetAppClick,
-  onForgotPassword,
-  loginInputRef,
-}: HeroSectionProps) {
+export function HeroSection({ onGetAppClick }: HeroSectionProps) {
   return (
-    <section id="home" className="w-full flex-1 flex items-center justify-center py-8 lg:py-12">
-      <div className="w-full px-6 sm:px-10 lg:px-14 xl:px-16 max-w-7xl mx-auto">
-        
-        {/* 2-Column Balanced, Formal Layout */}
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-14 xl:gap-20">
-          
-          {/* Left Column: Formal & Dignified Value Proposition */}
-          <div className="text-left w-full lg:max-w-[540px] xl:max-w-[580px] space-y-6">
-            
-            {/* Elegant, Dignified Editorial Headline */}
-            <div className="space-y-1 sm:space-y-1.5">
-              <h1 className="text-3xl sm:text-4xl lg:text-[46px] xl:text-[50px] font-extrabold tracking-tight text-slate-900 leading-[1.16]">
-                Your Farm.
-              </h1>
-              <h1 className="text-3xl sm:text-4xl lg:text-[46px] xl:text-[50px] font-extrabold tracking-tight text-slate-900 leading-[1.16]">
-                Your Community.
-              </h1>
-              <h1 className="text-3xl sm:text-4xl lg:text-[46px] xl:text-[50px] font-extrabold tracking-tight text-slate-900 leading-[1.16]">
-                Your <span className="text-[#237227]">Local Farm.</span>
-              </h1>
-            </div>
+    <section
+      id="home"
+      className="relative w-full min-h-[calc(100svh-68px)] flex items-center py-10 lg:py-16 bg-white"
+    >
+      <div className="w-full max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 items-center gap-10 lg:gap-16">
 
-            {/* Subtitle Description: Soothing, Crisp & Informative */}
-            <p className="text-sm sm:text-base leading-relaxed text-slate-600 font-normal max-w-lg">
-              Local Farm is a social platform for farmers and communities to connect, share, learn, and grow together. Stay updated, engage with others, and build a stronger agriculture community.
+          {/* Left: copy + action */}
+          <Reveal from="left" className="lg:col-span-6 order-1 space-y-6 sm:space-y-7">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#237227]">
+              Farm-to-community platform
             </p>
 
-            {/* Action Buttons: Formal, Balanced Proportions */}
-            <div className="pt-2 flex flex-wrap items-center gap-3.5">
+            <h1 className="text-[38px] sm:text-[50px] xl:text-[60px] font-black tracking-[-0.04em] text-[#162718] leading-[1.04]">
+              Grow, connect &amp; harvest together on{' '}
+              <span className="text-[#237227]">Local Farm.</span>
+            </h1>
+
+            <p className="max-w-md text-base lg:text-[17px] leading-relaxed text-[#425a46]">
+              Share your harvest, find farms near you, and trade directly with the people who grow your food.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={onGetAppClick}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-full bg-[#237227] px-8 py-3.5 text-sm sm:text-base font-bold text-white shadow-sm transition-all hover:bg-[#1b5e20] hover:shadow-md active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#237227] cursor-pointer"
               >
                 <Smartphone className="h-4 w-4" />
-                <span>Get the App</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onExploreMore}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50 px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 transition-all active:scale-[0.98] shadow-2xs hover:border-slate-300 cursor-pointer"
-              >
-                <Play className="h-3.5 w-3.5 text-slate-700 fill-slate-700" />
-                <span>Learn More</span>
+                Connect with Us!
               </button>
             </div>
 
-            {/* Respectful, Quiet Store Availability Line */}
-            <div className="pt-1 flex items-center gap-2 text-xs text-slate-500 font-medium">
-              <span>Available for mobile members on</span>
-              <button
-                type="button"
-                onClick={onGetAppClick}
-                className="font-semibold text-slate-700 hover:text-[#237227] transition-colors cursor-pointer underline-offset-2 hover:underline"
-              >
-                Android
-              </button>
-              <span className="text-slate-300">•</span>
-              <button
-                type="button"
-                onClick={onGetAppClick}
-                className="font-semibold text-slate-700 hover:text-[#237227] transition-colors cursor-pointer underline-offset-2 hover:underline"
-              >
-                iOS
-              </button>
+            <ul className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-[#5c7560]">
+              {['Free to join', 'RSBSA-verified farmers', 'Android & iOS'].map((t) => (
+                <li key={t} className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#237227]" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+
+          {/* Right: single hero photo in an interactive zoom-in container */}
+          <Reveal from="right" delay={120} className="lg:col-span-6 order-2">
+            <div className="relative group cursor-pointer">
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[30px] border border-slate-200/90 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.12)] bg-white transition-all duration-500 ease-out group-hover:shadow-[0_28px_65px_-18px_rgba(0,0,0,0.22)] group-hover:-translate-y-1">
+                <img
+                  src="/images/landing/hero-localfarm.jpg"
+                  alt="Local farmers holding freshly harvested vegetables"
+                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  loading="eager"
+                />
+              </div>
             </div>
-
-          </div>
-
-          {/* Right Column: Clean, Elegant Authentication Card */}
-          <div className="w-full sm:w-[380px] lg:w-[390px] shrink-0 flex justify-center lg:justify-end">
-            <AuthCard
-              onOpenAdminPreview={onOpenAdminPreview}
-              onForgotPassword={onForgotPassword}
-              inputRef={loginInputRef}
-            />
-          </div>
+          </Reveal>
 
         </div>
       </div>
+
+      {/* Scroll cue */}
+      <a
+        href="#feature-map"
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 hidden lg:flex flex-col items-center gap-1 text-[11px] font-semibold text-[#6a826e] hover:text-[#237227] transition-colors"
+      >
+        Scroll to explore
+        <ChevronDown className="h-4 w-4 motion-safe:animate-bounce" />
+      </a>
     </section>
   );
 }

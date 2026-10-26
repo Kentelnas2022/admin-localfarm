@@ -24,7 +24,9 @@ import {
   BookOpen
 } from 'lucide-react';
 
-export type ModalType = 'none' | 'app' | 'about' | 'features' | 'contact' | 'forgot' | 'feature-detail';
+import { AuthCard } from './AuthCard';
+
+export type ModalType = 'none' | 'app' | 'about' | 'features' | 'contact' | 'forgot' | 'feature-detail' | 'login';
 
 export interface FeatureDetailData {
   id: string;
@@ -42,6 +44,7 @@ interface LandingModalsProps {
   featureData?: FeatureDetailData | null;
   onOpenAppModal?: () => void;
   onOpenContactModal?: () => void;
+  onOpenForgotModal?: () => void;
 }
 
 export function LandingModals({
@@ -49,7 +52,8 @@ export function LandingModals({
   onClose,
   featureData,
   onOpenAppModal,
-  onOpenContactModal
+  onOpenContactModal,
+  onOpenForgotModal
 }: LandingModalsProps) {
   const [mounted, setMounted] = React.useState(false);
   const [resetEmail, setResetEmail] = React.useState('admin@localfarm.com');
@@ -68,7 +72,7 @@ export function LandingModals({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative bg-white rounded-3xl border border-slate-200/90 shadow-2xl max-w-xl w-full p-6 sm:p-8 space-y-6 my-auto animate-in fade-in zoom-in-95 duration-200 text-left"
+        className={`relative bg-white rounded-3xl border border-[#dce8dc] shadow-2xl ${modalType === 'login' || modalType === 'app' ? 'max-w-md' : 'max-w-xl'} w-full p-6 sm:p-8 space-y-6 my-auto animate-in fade-in zoom-in-95 duration-200 text-left`}
       >
         {/* Close Button */}
         <button
@@ -79,110 +83,47 @@ export function LandingModals({
           <X className="h-4 w-4" />
         </button>
 
-        {/* 1. DOWNLOAD MOBILE APP MODAL */}
+        {/* 1. DOWNLOAD MOBILE APP MODAL (QR Code Focused) */}
         {modalType === 'app' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100">
-              <div className="h-11 w-11 rounded-2xl bg-[#237227]/10 text-[#237227] flex items-center justify-center shrink-0">
-                <Smartphone className="h-6 w-6" />
+          <div className="space-y-6 text-center py-2">
+            <div className="space-y-1.5">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#237227]/10 text-[#237227] mb-1">
+                <QrCode className="h-6 w-6" />
               </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900 tracking-tight leading-tight">
-                  Get Local Farm Mobile App
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Available for local farmers, produce merchants, and agricultural buyers.
-                </p>
-              </div>
+              <h3 className="text-xl font-black text-[#182a1a] tracking-tight">
+                Download Local Farm App
+              </h3>
+              <p className="text-xs text-[#526b55] max-w-xs mx-auto leading-relaxed">
+                Scan with your phone camera to download and install the verified mobile app.
+              </p>
             </div>
 
-            {/* QR Code & Scan Prompt */}
-            <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <div className="h-28 w-28 bg-white rounded-xl border border-slate-200 p-2 flex items-center justify-center shadow-2xs shrink-0">
-                <QrCode className="h-20 w-20 text-[#237227]" />
-              </div>
-              <div className="space-y-1.5 text-center sm:text-left">
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#237227]/10 text-[#237227] border border-[#237227]/20">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#237227] animate-pulse" />
-                  Instant Direct Download
-                </div>
-                <h4 className="text-sm font-bold text-slate-800">Scan to Install on Mobile</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Open your camera app and point it at the QR code to install the latest verified release build directly.
-                </p>
-              </div>
+            {/* High Resolution Scan-Ready QR Code */}
+            <div className="relative mx-auto w-60 h-60 p-4 rounded-3xl bg-white border border-[#dce8dc] shadow-[0_12px_32px_rgba(0,0,0,0.06)] flex items-center justify-center">
+              <img
+                src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https://localfarm.app/download"
+                alt="Local Farm App Download QR Code"
+                className="w-full h-full object-contain rounded-xl"
+                loading="eager"
+              />
             </div>
 
-            {/* Clean Natural Platform Buttons (No black buttons!) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Direct Download Button */}
+            <div className="space-y-2 pt-1">
               <a
-                href="#download-android"
+                href="#download"
                 onClick={(e) => {
                   e.preventDefault();
-                  alert('Starting verified Local Farm Android APK download (v2.4.0)...');
+                  alert('Starting verified Local Farm APK download (v2.4.0)...');
                 }}
-                className="flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-[#237227] hover:bg-[#237227]/5 transition-all group cursor-pointer shadow-2xs"
+                className="inline-flex items-center justify-center gap-2 w-full max-w-xs rounded-full bg-[#237227] hover:bg-[#1b5e20] text-white py-3 px-6 text-xs sm:text-sm font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
               >
-                <div className="h-9 w-9 rounded-xl bg-slate-100 group-hover:bg-[#237227] group-hover:text-white text-slate-700 flex items-center justify-center transition-colors shrink-0">
-                  <Download className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-[#237227]">Android Package</div>
-                  <div className="text-xs font-bold text-slate-900 leading-tight">Download APK (v2.4)</div>
-                </div>
+                <Download className="h-4 w-4" />
+                <span>Download APK Directly</span>
               </a>
-
-              <a
-                href="#download-ios"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('Redirecting to Apple TestFlight beta preview for Local Farm...');
-                }}
-                className="flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-[#237227] hover:bg-[#237227]/5 transition-all group cursor-pointer shadow-2xs"
-              >
-                <div className="h-9 w-9 rounded-xl bg-slate-100 group-hover:bg-[#237227] group-hover:text-white text-slate-700 flex items-center justify-center transition-colors shrink-0">
-                  <ExternalLink className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-[#237227]">Apple iOS</div>
-                  <div className="text-xs font-bold text-slate-900 leading-tight">Apple TestFlight / Store</div>
-                </div>
-              </a>
-            </div>
-
-            {/* Core Mobile Capabilities */}
-            <div className="space-y-2 pt-2">
-              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                Mobile Member Features:
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3.5 w-3.5 text-[#237227] shrink-0" />
-                  <span>Fair Daily Produce Pricing</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3.5 w-3.5 text-[#237227] shrink-0" />
-                  <span>Verified Farmer Profiles</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3.5 w-3.5 text-[#237227] shrink-0" />
-                  <span>Direct In-App Messaging</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3.5 w-3.5 text-[#237227] shrink-0" />
-                  <span>Scam Warning Push Alerts</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
-              >
-                Got It
-              </button>
+              <p className="text-[11px] text-[#6a826e] font-medium">
+                Available for Android & iOS · Free Community Download
+              </p>
             </div>
           </div>
         )}
@@ -523,6 +464,20 @@ export function LandingModals({
           </div>
         )}
 
+
+        {/* 7. LOGIN MODAL */}
+        {modalType === 'login' && (
+          <div className="py-1">
+            <AuthCard
+              embedded={true}
+              onForgotPassword={() => {
+                if (onOpenForgotModal) {
+                  onOpenForgotModal();
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>,
     document.body

@@ -350,6 +350,12 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    if (cleanStatus === 'suspended') {
+      try {
+        await query('UPDATE user_sessions SET is_active = FALSE WHERE user_id = ?', [id]);
+      } catch {}
+    }
+
     // Fetch updated user
     const updated = await query<any[]>(
       `SELECT 

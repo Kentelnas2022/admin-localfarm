@@ -25,8 +25,19 @@ import {
   Clock,
   Filter,
   Download,
-  ChevronDown
+  ChevronDown,
+  QrCode,
+  Calendar,
+  Scale,
+  Receipt,
+  Check,
+  CheckCheck,
+  Copy,
+  Printer,
+  Leaf,
+  ArrowRight
 } from 'lucide-react';
+import { AdminReservationView } from './AdminReservationView';
 
 export interface SrpCheckInfo {
   status: 'overpriced' | 'compliant' | 'bargain';
@@ -66,7 +77,44 @@ export interface PostItem {
   srp_check?: SrpCheckInfo | null;
 }
 
+export interface ReservationItem {
+  id: number;
+  reservation_code: string;
+  post_id: number;
+  seller_id: number;
+  buyer_id: number;
+  crop_name: string;
+  quantity: number;
+  unit: string;
+  price_per_unit: number;
+  total_estimated_amount: number;
+  actual_weighed_quantity: number | null;
+  final_settled_amount: number | null;
+  harvest_date: string;
+  pickup_location: string;
+  status: 'pending' | 'confirmed' | 'ready_for_pickup' | 'completed' | 'cancelled';
+  qr_token: string;
+  buyer_notes?: string | null;
+  seller_notes?: string | null;
+  weighed_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  buyer_name?: string;
+  buyer_email?: string;
+  buyer_phone?: string;
+  buyer_avatar?: string;
+  seller_name?: string;
+  seller_email?: string;
+  seller_phone?: string;
+  seller_avatar?: string;
+  farm_name?: string;
+  farmer_code?: string;
+}
+
 export function AdminMarketplace() {
+  // Top Market Tab: 'posts' | 'reservations'
+  const [activeMarketTab, setActiveMarketTab] = useState<'posts' | 'reservations'>('posts');
+
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [stats, setStats] = useState({
     totalPosts: 0,
@@ -75,6 +123,32 @@ export function AdminMarketplace() {
     temporaryCount: 0,
     generalCount: 0
   });
+
+  // Pre-Harvest Reservation States
+  const [reservations, setReservations] = useState<ReservationItem[]>([]);
+  const [resKpis, setResKpis] = useState({
+    totalReservations: 0,
+    totalVolumeKg: 0,
+    totalEstimatedValue: 0,
+    completedCount: 0,
+    readyCount: 0,
+    pendingCount: 0,
+    confirmedCount: 0,
+    cancelledCount: 0
+  });
+  const [resLoading, setResLoading] = useState(false);
+  const [resStatusFilter, setResStatusFilter] = useState<string>('all');
+  const [resSearchQuery, setResSearchQuery] = useState<string>('');
+  const [resPage, setResPage] = useState(1);
+  const [resTotalPages, setResTotalPages] = useState(1);
+  const [resTotalCount, setResTotalCount] = useState(0);
+
+  // Reservation Modals
+  const [selectedReceipt, setSelectedReceipt] = useState<ReservationItem | null>(null);
+  const [weighInModalItem, setWeighInModalItem] = useState<ReservationItem | null>(null);
+  const [weighInInput, setWeighInInput] = useState<string>('');
+  const [weighInNotes, setWeighInNotes] = useState<string>('');
+  const [isSubmittingWeighIn, setIsSubmittingWeighIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -259,6 +333,97 @@ export function AdminMarketplace() {
     );
   }
 
+  // Fetch reservations
+  const fetchReservations = useCallback(async (page = resPage, status = resStatusFilter, search = resSearchQuery) => {
+    setResLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '10',
+        status,
+        search
+      });
+      const res = await fetch(`/api/admin/reservations?${params.toString()}`);
+      const data = await res.json();
+      if (res.ok) {
+        setReservations(data.reservations || []);
+        if (data.kpi) setResKpis(data.kpi);
+        if (data.pagination) {
+          setResTotalPages(data.pagination.totalPages);
+          setResTotalCount(data.pagination.totalCount);
+          setResPage(data.pagination.page);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load reservations:', err);
+    } finally {
+      setResLoading(false);
+    }
+  }, [resPage, resStatusFilter, resSearchQuery]);
+
+  useEffect(() => {
+    if (activeMarketTab === 'reservations') {
+      fetchReservations(1, resStatusFilter, resSearchQuery);
+    }
+  }, [activeMarketTab, resStatusFilter, resSearchQuery]);
+
+  // Complete Physical Weigh-In
+  async function handleCompleteWeighIn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!weighInModalItem) return;
+    const qty = parseFloat(weighInInput);
+    if (isNaN(qty) || qty <= 0) {
+      showToast('Validation Error', 'Please enter a valid scale weight.', 'error');
+      return;
+    }
+
+    setIsSubmittingWeighIn(true);
+    try {
+      const res = await fetch('/api/admin/reservations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: weighInModalItem.id,
+          action: 'complete_weighin',
+          actualWeighedQuantity: qty,
+          adminNotes: weighInNotes.trim() || undefined
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to complete weigh-in');
+
+      showToast('Weigh-In Stamped!', `Order ${weighInModalItem.reservation_code} completed at ${qty} ${weighInModalItem.unit}.`, 'success');
+      setWeighInModalItem(null);
+      fetchReservations(resPage, resStatusFilter, resSearchQuery);
+    } catch (err: any) {
+      showToast('Error', err.message || 'Weigh-in verification failed.', 'error');
+    } finally {
+      setIsSubmittingWeighIn(false);
+    }
+  }
+
+  // Update Status
+  async function handleUpdateReservationStatus(id: number, newStatus: string) {
+    try {
+      const res = await fetch('/api/admin/reservations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          action: 'update_status',
+          status: newStatus
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Status update failed');
+
+      showToast('Status Updated', data.message || `Status set to ${newStatus}.`, 'success');
+      fetchReservations(resPage, resStatusFilter, resSearchQuery);
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to update reservation.', 'error');
+    }
+  }
+
   return (
     <div className="space-y-6">
 
@@ -278,8 +443,19 @@ export function AdminMarketplace() {
         document.body
       )}
 
-      {/* =========== 1. KPI CARDS =========== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {activeMarketTab === 'reservations' && (
+        <AdminReservationView 
+          showToast={showToast}
+          activeMarketTab={activeMarketTab}
+          setActiveMarketTab={setActiveMarketTab}
+          totalPostsCount={stats.totalPosts}
+        />
+      )}
+
+      {activeMarketTab === 'posts' && (
+        <>
+          {/* =========== 1. KPI CARDS =========== */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
         {/* Total Produce Listings */}
         <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
@@ -381,6 +557,24 @@ export function AdminMarketplace() {
           </div>
 
           <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap sm:flex-nowrap">
+            {/* Section / View Mode Dropdown */}
+            <div className="relative inline-flex items-center">
+              <select
+                value={activeMarketTab}
+                onChange={(e) => setActiveMarketTab(e.target.value as 'posts' | 'reservations')}
+                aria-label="Select marketplace manager section"
+                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
+              >
+                <option value="posts" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                  Produce Feed & Listings ({stats.totalPosts})
+                </option>
+                <option value="reservations" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                  Pre-Harvest Reservations ({resKpis.totalReservations || 3})
+                </option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
+            </div>
+
             {/* Category Dropdown (Uniform) */}
             <div className="relative inline-flex items-center">
               <select
@@ -644,6 +838,8 @@ export function AdminMarketplace() {
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* =========== MODAL: FULL POST INSPECTION =========== */}

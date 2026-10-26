@@ -27,7 +27,8 @@ import {
   Printer,
   Download,
   QrCode,
-  Plus
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 
 export interface FarmerProfile {
@@ -55,7 +56,12 @@ export interface FarmerProfile {
   total_posts?: number;
 }
 
-export function AdminVerification() {
+interface AdminVerificationProps {
+  initialStatusFilter?: 'all' | 'pending' | 'verified' | 'rejected';
+  onStatusChange?: () => void;
+}
+
+export function AdminVerification({ initialStatusFilter = 'all', onStatusChange }: AdminVerificationProps = {}) {
   const [farmers, setFarmers] = useState<FarmerProfile[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -65,7 +71,13 @@ export function AdminVerification() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>(initialStatusFilter);
+
+  useEffect(() => {
+    if (initialStatusFilter) {
+      setStatusFilter(initialStatusFilter);
+    }
+  }, [initialStatusFilter]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -177,6 +189,7 @@ export function AdminVerification() {
         setSelectedFarmer(prev => prev ? { ...prev, verification_status: 'verified', is_verified: 1 } : null);
       }
       fetchFarmers(currentPage, statusFilter, searchQuery, pageSize);
+      if (onStatusChange) onStatusChange();
     } catch (err: any) {
       showToast('Action Failed', err.message || 'Error verifying farmer', 'error');
     } finally {
@@ -203,6 +216,7 @@ export function AdminVerification() {
         setSelectedFarmer(prev => prev ? { ...prev, verification_status: 'rejected', is_verified: 0 } : null);
       }
       fetchFarmers(currentPage, statusFilter, searchQuery, pageSize);
+      if (onStatusChange) onStatusChange();
     } catch (err: any) {
       showToast('Action Failed', err.message || 'Error rejecting accreditation', 'error');
     } finally {
@@ -357,7 +371,7 @@ export function AdminVerification() {
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder="Search farmer name, farm, crops, location, or code..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-[#131614] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-[#131614] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 transition-all"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
@@ -368,53 +382,23 @@ export function AdminVerification() {
 
           {/* Controls: Segmented Status Filter + Actions */}
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* Status Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-[#131614] p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 overflow-x-auto">
-              <button
-                onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === 'all'
-                    ? 'bg-white dark:bg-[#222723] text-slate-900 dark:text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+            {/* Status Dropdown */}
+            <div className="relative inline-flex items-center">
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
+                aria-label="Filter by accreditation status"
+                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
               >
-                All ({stats.total})
-              </button>
-              <button
-                onClick={() => { setStatusFilter('pending'); setCurrentPage(1); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === 'pending'
-                    ? 'bg-farm-600 text-white shadow-2xs'
-                    : 'text-amber-700 dark:text-amber-400 hover:text-amber-800'
-                }`}
-              >
-                <span>Pending</span>
-                {stats.pending > 0 && (
-                  <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${statusFilter === 'pending' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'}`}>
-                    {stats.pending}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => { setStatusFilter('verified'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === 'verified'
-                    ? 'bg-farm-600 text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Verified ({stats.verified})
-              </button>
-              <button
-                onClick={() => { setStatusFilter('rejected'); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === 'rejected'
-                    ? 'bg-rose-600 text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Rejected ({stats.rejected})
-              </button>
+                <option value="all" className="dark:bg-[#1a1e1b]">All Accreditations ({stats.total})</option>
+                <option value="pending" className="dark:bg-[#1a1e1b]">Pending ({stats.pending})</option>
+                <option value="verified" className="dark:bg-[#1a1e1b]">Verified ({stats.verified})</option>
+                <option value="rejected" className="dark:bg-[#1a1e1b]">Rejected ({stats.rejected})</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
             </div>
 
             {/* Export CSV */}
@@ -431,7 +415,7 @@ export function AdminVerification() {
             <button
               type="button"
               onClick={() => setIsAddFarmerOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-farm-600 hover:bg-farm-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Register Farmer</span>

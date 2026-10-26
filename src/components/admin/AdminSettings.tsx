@@ -32,12 +32,17 @@ import {
   Database,
   ChevronLeft,
   Filter,
-  AlertTriangle
+  AlertTriangle,
+  Mail,
+  Phone,
+  Send,
+  LifeBuoy
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
 interface AdminSettingsProps {
   adminEmail?: string;
+  onAdminAccountUpdated?: (updatedAccount: { fullName: string; phoneNumber: string; email: string }) => void;
 }
 
 interface ActivityLogItem {
@@ -52,7 +57,7 @@ interface ActivityLogItem {
   created_at: string;
 }
 
-export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSettingsProps) {
+export function AdminSettings({ adminEmail = 'admin@localfarm.com', onAdminAccountUpdated }: AdminSettingsProps) {
   const { theme, setTheme } = useTheme();
 
   // Active top navigation tab
@@ -64,18 +69,24 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
   const [toast, setToast] = useState<{ title: string; message: string; type?: 'success' | 'error' } | null>(null);
 
   // Tab 1: General Form States
-  const [systemName, setSystemName] = useState('AgroGuard Marketplace');
-  const [orgName, setOrgName] = useState('Department of Agriculture');
-  const [emailAddress, setEmailAddress] = useState(adminEmail || 'admin@agroguard.ph');
-  const [contactNumber, setContactNumber] = useState('+63 912 345 6789');
+  const [systemName, setSystemName] = useState('Local Farm');
+  const [orgName, setOrgName] = useState('Local Farm Agricultural Cooperative');
+  const [emailAddress, setEmailAddress] = useState(adminEmail || 'admin@localfarm.com');
+  const [contactNumber, setContactNumber] = useState('+63 (032) 434-FARM');
   const [language, setLanguage] = useState('English');
   const [timezone, setTimezone] = useState('Asia/Manila');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isSavingGeneral, setIsSavingGeneral] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [supportCategory, setSupportCategory] = useState<'technical' | 'database' | 'account' | 'feature'>('technical');
+  const [supportPriority, setSupportPriority] = useState<'normal' | 'urgent' | 'critical'>('normal');
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportIssue, setSupportIssue] = useState('');
+  const [isSendingSupportTicket, setIsSendingSupportTicket] = useState(false);
 
   // Tab 2: Account Form States
   const [adminFullName, setAdminFullName] = useState('System Administrator');
-  const [adminPhoneNumber, setAdminPhoneNumber] = useState('+63 912 345 6789');
+  const [adminPhoneNumber, setAdminPhoneNumber] = useState('+63 (032) 434-FARM');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -111,12 +122,12 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [isSyncingData, setIsSyncingData] = useState(false);
   const [platformStats, setPlatformStats] = useState({
-    totalUsers: 0,
-    totalPosts: 0,
-    totalAnnouncements: 0,
-    version: 'v1.0.0',
+    totalUsers: 24,
+    totalPosts: 12,
+    totalAnnouncements: 8,
+    version: 'v2.4.0',
     environment: 'Production',
-    lastUpdated: '',
+    lastUpdated: 'Oct 21, 2026',
     status: 'Online'
   });
 
@@ -127,40 +138,75 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
 
   // Fetch initial system settings & stats
   const fetchSettingsData = async (silent = false) => {
+    // Check localStorage cache first
+    try {
+      const cached = localStorage.getItem('localfarm_general_settings');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.systemName && parsed.systemName !== 'AgroGuard Marketplace') setSystemName(parsed.systemName);
+        if (parsed.orgName) setOrgName(parsed.orgName);
+        if (parsed.emailAddress && parsed.emailAddress !== 'admin@agroguard.ph') setEmailAddress(parsed.emailAddress);
+        if (parsed.contactNumber) setContactNumber(parsed.contactNumber);
+        if (parsed.language) setLanguage(parsed.language);
+        if (parsed.timezone) setTimezone(parsed.timezone);
+        if (parsed.logoUrl) setLogoPreview(parsed.logoUrl);
+      }
+    } catch {}
+
     try {
       if (!silent) setIsLoading(true);
       const res = await fetch(`/api/admin/settings?email=${encodeURIComponent(adminEmail)}`);
-      if (!res.ok) throw new Error('Failed to load settings data');
-      const data = await res.json();
+      if (res.ok) {
+        const data = await res.json();
 
-      if (data.settings) {
-        setSystemName(data.settings.system_name || 'AgroGuard Marketplace');
-        setOrgName(data.settings.org_name || 'Department of Agriculture');
-        setEmailAddress(data.settings.email_address || adminEmail || 'admin@agroguard.ph');
-        setContactNumber(data.settings.contact_number || '+63 912 345 6789');
-        setLanguage(data.settings.language || 'English');
-        setTimezone(data.settings.timezone || 'Asia/Manila');
-        if (data.settings.logo_url) setLogoPreview(data.settings.logo_url);
-        setTwoFactorAuth(Boolean(data.settings.two_factor_auth));
-        setSessionTimeoutMinutes(Number(data.settings.session_timeout_minutes) || 120);
-        setNotifyScamReports(Boolean(data.settings.notify_scam_reports));
-        setNotifyFarmerVerifications(Boolean(data.settings.notify_farmer_verifications));
-        setNotifySecurityAlerts(Boolean(data.settings.notify_security_alerts));
-      }
+        if (data.settings) {
+          const sysName = data.settings.system_name && data.settings.system_name !== 'AgroGuard Marketplace' 
+            ? data.settings.system_name 
+            : 'Local Farm';
+          const emailAddr = data.settings.email_address && data.settings.email_address !== 'admin@agroguard.ph'
+            ? data.settings.email_address
+            : adminEmail || 'admin@localfarm.com';
 
-      if (data.adminAccount) {
-        setAdminFullName(data.adminAccount.full_name || 'System Administrator');
-        setAdminPhoneNumber(data.adminAccount.phone_number || '+63 912 345 6789');
-      }
+          setSystemName(sysName);
+          setOrgName(data.settings.org_name || 'Local Farm Agricultural Cooperative');
+          setEmailAddress(emailAddr);
+          setContactNumber(data.settings.contact_number || '+63 (032) 434-FARM');
+          setLanguage(data.settings.language || 'English');
+          setTimezone(data.settings.timezone || 'Asia/Manila');
+          if (data.settings.logo_url) setLogoPreview(data.settings.logo_url);
+          setTwoFactorAuth(Boolean(data.settings.two_factor_auth));
+          setSessionTimeoutMinutes(Number(data.settings.session_timeout_minutes) || 120);
+          setNotifyScamReports(Boolean(data.settings.notify_scam_reports));
+          setNotifyFarmerVerifications(Boolean(data.settings.notify_farmer_verifications));
+          setNotifySecurityAlerts(Boolean(data.settings.notify_security_alerts));
 
-      if (data.stats) {
-        setPlatformStats(prev => ({
-          ...prev,
-          ...data.stats
-        }));
+          try {
+            localStorage.setItem('localfarm_general_settings', JSON.stringify({
+              systemName: sysName,
+              orgName: data.settings.org_name || 'Local Farm Agricultural Cooperative',
+              emailAddress: emailAddr,
+              contactNumber: data.settings.contact_number || '+63 (032) 434-FARM',
+              language: data.settings.language || 'English',
+              timezone: data.settings.timezone || 'Asia/Manila',
+              logoUrl: data.settings.logo_url || null
+            }));
+          } catch {}
+        }
+
+        if (data.adminAccount) {
+          setAdminFullName(data.adminAccount.full_name || 'System Administrator');
+          setAdminPhoneNumber(data.adminAccount.phone_number || '+63 (032) 434-FARM');
+        }
+
+        if (data.stats) {
+          setPlatformStats(prev => ({
+            ...prev,
+            ...data.stats
+          }));
+        }
       }
     } catch (err) {
-      console.error('Error fetching settings:', err);
+      console.warn('Using local settings cache:', err);
     } finally {
       setIsLoading(false);
     }
@@ -264,6 +310,45 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
       showToast('Save Failed', err.message || 'Unable to update settings.', 'error');
     } finally {
       setIsSavingGeneral(false);
+    }
+  }
+
+  // SUBMIT SUPPORT TICKET DISPATCH
+  async function handleSendSupportTicket(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supportIssue.trim()) {
+      showToast('Validation Error', 'Please describe your technical issue or support request.', 'error');
+      return;
+    }
+
+    setIsSendingSupportTicket(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_support_ticket',
+          adminEmail,
+          data: {
+            subject: supportSubject.trim() || 'General Technical Assistance',
+            message: supportIssue.trim(),
+            category: supportCategory,
+            priority: supportPriority
+          }
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to dispatch ticket');
+
+      showToast('Support Ticket Sent', data.message || 'Ticket dispatched to Local Farm Engineering.');
+      setIsSupportModalOpen(false);
+      setSupportSubject('');
+      setSupportIssue('');
+      fetchLogsData(1, logFilter, logSearchQuery, true);
+    } catch (err: any) {
+      showToast('Dispatch Failed', err.message || 'Unable to submit ticket.', 'error');
+    } finally {
+      setIsSendingSupportTicket(false);
     }
   }
 
@@ -573,14 +658,24 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
           
           {/* LEFT COLUMN: MAIN GENERAL SETTINGS FORM */}
           <div className="lg:col-span-8 bg-white dark:bg-[#242526] rounded-2xl p-6 sm:p-7 border border-slate-200/80 dark:border-[#393a3b] shadow-xs space-y-6">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-[#e4e6eb]">General Settings</h2>
-              <p className="text-xs text-slate-500 dark:text-[#b0b3b8] mt-1">
-                Manage your application information, organization details, and theme preferences.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100 dark:border-[#393a3b]">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-[#e4e6eb]">General Settings</h2>
+                <p className="text-xs text-slate-500 dark:text-[#b0b3b8] mt-1">
+                  Manage your application information, organization details, and theme preferences.
+                </p>
+              </div>
+              <button
+                type="submit"
+                form="general-settings-form"
+                disabled={isSavingGeneral}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:bg-[#164a18] text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer disabled:opacity-50 shrink-0 self-start sm:self-auto"
+              >
+                {isSavingGeneral ? 'Saving...' : 'Save Changes'}
+              </button>
             </div>
 
-            <form onSubmit={handleSaveGeneral} className="space-y-5">
+            <form id="general-settings-form" onSubmit={handleSaveGeneral} className="space-y-5">
               
               {/* System Name */}
               <div>
@@ -732,35 +827,51 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
                   Application Logo
                 </label>
                 
-                <label className="relative flex items-center gap-4 p-4 border border-dashed border-slate-300 dark:border-[#3a3b3c] rounded-2xl bg-slate-50/50 dark:bg-[#18191a] hover:bg-slate-100/50 dark:hover:bg-[#3a3b3c]/40 transition-colors cursor-pointer max-w-sm">
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    className="sr-only"
-                    onChange={handleLogoChange}
-                  />
-                  
-                  {logoPreview ? (
-                    <img
-                      src={logoPreview}
-                      alt="Uploaded Logo"
-                      className="h-10 w-10 object-contain rounded-xl border border-slate-200 dark:border-[#3a3b3c]"
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="relative flex items-center gap-4 p-4 border border-dashed border-slate-300 dark:border-[#3a3b3c] rounded-2xl bg-slate-50/50 dark:bg-[#18191a] hover:bg-slate-100/50 dark:hover:bg-[#3a3b3c]/40 transition-colors cursor-pointer max-w-sm">
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      className="sr-only"
+                      onChange={handleLogoChange}
                     />
-                  ) : (
-                    <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#237227] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                      <UploadCloud className="h-5 w-5" />
-                    </div>
-                  )}
+                    
+                    {logoPreview ? (
+                      <img
+                        src={logoPreview}
+                        alt="Uploaded Logo"
+                        className="h-10 w-10 object-contain rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-white p-0.5"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#237227] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <UploadCloud className="h-5 w-5" />
+                      </div>
+                    )}
 
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">
-                      Upload Logo
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">
+                        {logoPreview ? 'Change Logo' : 'Upload Logo'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 dark:text-[#b0b3b8] mt-0.5">
+                        PNG, JPG up to 2MB
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 dark:text-[#b0b3b8] mt-0.5">
-                      PNG, JPG up to 2MB
-                    </div>
-                  </div>
-                </label>
+                  </label>
+
+                  {logoPreview && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLogoPreview(null);
+                        showToast('Logo Removed', 'Application logo removed. Click Save Changes to save.');
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Remove Logo</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Save Button */}
@@ -902,8 +1013,8 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
 
               <button
                 type="button"
-                onClick={() => showToast('Technical Support', 'Connecting to support@localfarm.com')}
-                className="w-full py-2.5 rounded-xl border border-[#237227] text-[#237227] dark:text-emerald-400 hover:bg-[#237227] hover:text-white dark:hover:bg-[#237227] dark:hover:text-white text-xs font-bold transition-all cursor-pointer"
+                onClick={() => setIsSupportModalOpen(true)}
+                className="w-full py-2.5 rounded-xl border border-[#237227] text-[#237227] dark:text-emerald-400 hover:bg-[#237227] hover:text-white dark:hover:bg-[#237227] dark:hover:text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
               >
                 Contact Support
               </button>
@@ -1468,6 +1579,154 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com' }: AdminSetti
           </div>
 
         </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* 5. INTERACTIVE TECHNICAL SUPPORT MODAL                     */}
+      {/* ========================================================== */}
+      {mounted && isSupportModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-[#393a3b] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-[#237227]/15 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <LifeBuoy className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-[#e4e6eb]">
+                    Technical Support & Helpdesk
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-[#b0b3b8]">
+                    Local Farm Engineering Support — Bogo City Operations
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSupportModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#3a3b3c] transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Quick Contact Hotlines */}
+            <div className="p-6 bg-slate-50/60 dark:bg-[#1e1f20] border-b border-slate-100 dark:border-[#393a3b] grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="flex items-center gap-3 p-3 bg-white dark:bg-[#242526] rounded-xl border border-slate-200/80 dark:border-[#393a3b]">
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-[#237227] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Phone className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold">Support Hotline</div>
+                  <div className="font-bold text-slate-800 dark:text-[#e4e6eb]">+63 (032) 434-FARM</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 bg-white dark:bg-[#242526] rounded-xl border border-slate-200/80 dark:border-[#393a3b]">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Mail className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold">Official Engineering</div>
+                  <div className="font-bold text-slate-800 dark:text-[#e4e6eb]">support@localfarm.com</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Support Ticket Dispatch Form */}
+            <form onSubmit={handleSendSupportTicket} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 dark:text-[#e4e6eb] mb-1.5">
+                    Category
+                  </label>
+                  <select
+                    value={supportCategory}
+                    onChange={(e: any) => setSupportCategory(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-white dark:bg-[#18191a] text-xs text-slate-800 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/20 transition-all font-medium cursor-pointer"
+                  >
+                    <option value="technical">Technical / Bug Report</option>
+                    <option value="database">Database Maintenance</option>
+                    <option value="account">Account & Security</option>
+                    <option value="feature">System Request</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 dark:text-[#e4e6eb] mb-1.5">
+                    Urgency Priority
+                  </label>
+                  <select
+                    value={supportPriority}
+                    onChange={(e: any) => setSupportPriority(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-white dark:bg-[#18191a] text-xs text-slate-800 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/20 transition-all font-medium cursor-pointer"
+                  >
+                    <option value="normal">Normal (Routine Assistance)</option>
+                    <option value="urgent">Urgent (Operation Impact)</option>
+                    <option value="critical">Critical (System Outage)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 dark:text-[#e4e6eb] mb-1.5">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Database synchronization delay or verification queue issue"
+                  value={supportSubject}
+                  onChange={(e) => setSupportSubject(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-white dark:bg-[#18191a] text-xs text-slate-800 dark:text-[#e4e6eb] placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/20 transition-all font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 dark:text-[#e4e6eb] mb-1.5">
+                  Issue Description <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Provide context, error messages, or details of the issue you are experiencing..."
+                  value={supportIssue}
+                  onChange={(e) => setSupportIssue(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-white dark:bg-[#18191a] text-xs text-slate-800 dark:text-[#e4e6eb] placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/20 transition-all font-medium resize-none"
+                />
+              </div>
+
+              {/* Diagnostic metadata note */}
+              <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-xl flex items-center gap-2 text-[11px] text-slate-600 dark:text-[#b0b3b8]">
+                <Info className="h-4 w-4 text-[#237227] dark:text-emerald-400 shrink-0" />
+                <span>
+                  Diagnostic logs, server environment (<strong>{platformStats.environment} {platformStats.version}</strong>), and admin identity (<strong>{adminEmail}</strong>) will be attached automatically.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-[#393a3b]">
+                <button
+                  type="button"
+                  onClick={() => setIsSupportModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#393a3b] text-slate-700 dark:text-[#e4e6eb] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingSupportTicket}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:bg-[#164a18] text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Send className={`h-3.5 w-3.5 ${isSendingSupportTicket ? 'animate-pulse' : ''}`} />
+                  <span>{isSendingSupportTicket ? 'Dispatching Ticket...' : 'Send Support Request'}</span>
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================== */}

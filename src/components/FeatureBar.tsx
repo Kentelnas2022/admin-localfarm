@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { BookOpen, Share2, Video, ShieldCheck, Users } from 'lucide-react';
+import { BookOpen, Share2, Video, ShieldCheck, Users, ArrowUpRight } from 'lucide-react';
 import { FeatureDetailData } from './LandingModals';
 
 interface FeatureBarProps {
@@ -9,11 +9,12 @@ interface FeatureBarProps {
 }
 
 export function FeatureBar({ onSelectFeature }: FeatureBarProps) {
-  const features: (FeatureDetailData & { icon: any })[] = [
+  const features: (FeatureDetailData & { icon: any; tag: string })[] = [
     {
       id: 'connect',
-      title: 'Connect',
-      desc: 'Connect with farmers and your community.',
+      title: 'Farmer Network',
+      tag: 'Verified Growers',
+      desc: 'Direct communication between local growers and community wholesale buyers.',
       longDesc: 'Direct messaging and verified communication channels between local growers, wholesale buyers, and community members. Fosters transparent farm-to-table agreements without unnecessary intermediaries.',
       benefits: [
         'Direct chat with verified local farmers',
@@ -27,8 +28,9 @@ export function FeatureBar({ onSelectFeature }: FeatureBarProps) {
     },
     {
       id: 'learn',
-      title: 'Learn',
-      desc: 'Discover farming tips and agricultural news.',
+      title: 'Daily Price Watch',
+      tag: 'Fair Market Index',
+      desc: 'Official regional crop prices, market indices, and pest advisories.',
       longDesc: 'Access regional agricultural updates, crop rotation advice, pest management advisories, and official market price watch announcements issued by agronomists and administrators.',
       benefits: [
         'Daily official produce price index',
@@ -42,8 +44,9 @@ export function FeatureBar({ onSelectFeature }: FeatureBarProps) {
     },
     {
       id: 'share',
-      title: 'Share',
-      desc: 'Share stories, photos, and your experiences.',
+      title: 'Harvest Stories',
+      tag: 'Field Milestones',
+      desc: 'Celebrate harvest milestones, produce photos, and positive community culture.',
       longDesc: 'Celebrate harvest milestones, post produce photos, share community farm stories, and build a positive agricultural culture across Northern Cebu.',
       benefits: [
         'Harvest photos and crop showcase',
@@ -57,8 +60,9 @@ export function FeatureBar({ onSelectFeature }: FeatureBarProps) {
     },
     {
       id: 'live',
-      title: 'Live',
-      desc: 'Go live anytime and engage in real-time.',
+      title: 'Live Farm Broadcasts',
+      tag: 'Morning Field Streams',
+      desc: 'Real-time field walkthroughs, harvest showcases, and live market day bidding.',
       longDesc: 'Broadcast live farm walkthroughs, showcase fresh morning harvests directly from the field, and host real-time market day bidding sessions for community buyers.',
       benefits: [
         'Real-time field & greenhouse broadcasts',
@@ -72,8 +76,9 @@ export function FeatureBar({ onSelectFeature }: FeatureBarProps) {
     },
     {
       id: 'safe',
-      title: 'Safe & Secure',
-      desc: 'Your community is protected with our report system.',
+      title: 'RSBSA & Safety',
+      tag: 'Trusted Agriculture',
+      desc: 'Two-tier verification, scam protection, and community moderation.',
       longDesc: 'Comprehensive agricultural safety network backed by two-tier identity verification, community violation ticketing, and automated administrative enforcement against fraud or price manipulation.',
       benefits: [
         'Government ID and farm location verification',
@@ -88,9 +93,16 @@ export function FeatureBar({ onSelectFeature }: FeatureBarProps) {
   ];
 
   return (
-    <section className="w-full border-t border-slate-100 bg-white/90 backdrop-blur-sm py-4 sm:py-5 shrink-0 z-20 transition-all">
-      <div className="w-full px-6 sm:px-10 lg:px-14 xl:px-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-0">
+    <section className="w-full border-t border-[#e8efe8] bg-white py-3.5 sm:py-4 shrink-0 z-20">
+      <div className="w-full px-4 sm:px-8 lg:px-12 max-w-[1600px] mx-auto">
+        
+        {/* Pinterest-style Category Exploration Pills */}
+        <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-1">
+          
+          <div className="text-[11px] font-bold text-[#6a826e] uppercase tracking-wider shrink-0 mr-1 hidden sm:block">
+            Explore:
+          </div>
+
           {features.map((feature) => {
             const IconComponent = feature.icon;
             return (
@@ -98,24 +110,27 @@ export function FeatureBar({ onSelectFeature }: FeatureBarProps) {
                 key={feature.id}
                 type="button"
                 onClick={() => onSelectFeature && onSelectFeature(feature)}
-                className="group flex flex-col items-center text-center p-3 rounded-2xl md:rounded-none md:border-r md:border-slate-100 md:last:border-r-0 hover:bg-slate-50/80 transition-all cursor-pointer"
-                title={`Click to explore ${feature.title}`}
+                className="group inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-full border border-[#dce6dc] bg-[#f8faf8] hover:bg-[#edf5ed] hover:border-[#237227] transition-all cursor-pointer shrink-0 shadow-none active:scale-95"
+                title={feature.desc}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#237227]/8 text-[#237227] group-hover:scale-110 group-hover:bg-[#237227] group-hover:text-white transition-all mb-1.5 shadow-2xs">
-                  <IconComponent className="h-4.5 w-4.5 stroke-[2]" />
+                <div className="h-6 w-6 rounded-full bg-[#237227]/10 text-[#237227] group-hover:bg-[#237227] group-hover:text-white flex items-center justify-center transition-colors">
+                  <IconComponent className="h-3.5 w-3.5" />
                 </div>
-
-                <h4 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#237227] transition-colors leading-tight">
+                
+                <span className="text-xs sm:text-sm font-bold text-[#182a1a] group-hover:text-[#237227] transition-colors whitespace-nowrap">
                   {feature.title}
-                </h4>
+                </span>
 
-                <p className="mt-1 text-[11px] text-slate-500 group-hover:text-slate-600 leading-relaxed max-w-[190px] transition-colors line-clamp-2">
-                  {feature.desc}
-                </p>
+                <span className="hidden md:inline-block text-[11px] font-medium text-[#657e69] px-2 py-0.5 rounded-full bg-white border border-[#e2ece2]">
+                  {feature.tag}
+                </span>
+
+                <ArrowUpRight className="h-3 w-3 text-[#8ca390] group-hover:text-[#237227] transition-colors" />
               </button>
             );
           })}
         </div>
+
       </div>
     </section>
   );

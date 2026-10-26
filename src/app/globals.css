@@ -342,3 +342,198 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .animate-slide-in-right {
   animation: slideInRight 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+
+/* ========================================================= */
+/* LANDING & LOGIN PAGE: STRICTLY LIGHT/WHITE MODE ONLY      */
+/* Guarantees the landing page and login card remain white,  */
+/* completely protected from any dark mode inheritance.     */
+/* ========================================================= */
+#landing-page,
+.landing-page-root,
+html.dark #landing-page,
+html.dark .landing-page-root {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+#landing-page .bg-white,
+.landing-page-root .bg-white,
+.landing-modal-container,
+html.dark #landing-page .bg-white,
+html.dark .landing-page-root .bg-white,
+html.dark .landing-modal-container {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+#landing-page .bg-white\/95,
+.landing-page-root .bg-white\/95,
+html.dark #landing-page .bg-white\/95,
+html.dark .landing-page-root .bg-white\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+#landing-page .bg-white\/90,
+.landing-page-root .bg-white\/90,
+html.dark #landing-page .bg-white\/90,
+html.dark .landing-page-root .bg-white\/90 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+#landing-page .bg-slate-50,
+.landing-page-root .bg-slate-50,
+#landing-page .bg-slate-50\/40,
+.landing-page-root .bg-slate-50\/40,
+.landing-modal-container .bg-slate-50,
+html.dark #landing-page .bg-slate-50,
+html.dark .landing-page-root .bg-slate-50,
+html.dark #landing-page .bg-slate-50\/40,
+html.dark .landing-page-root .bg-slate-50\/40,
+html.dark .landing-modal-container .bg-slate-50 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+#landing-page input,
+.landing-page-root input,
+.landing-modal-container input,
+html.dark #landing-page input,
+html.dark .landing-page-root input,
+html.dark .landing-modal-container input {
+  background-color: rgba(248, 250, 252, 0.6) !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+#landing-page input:focus,
+.landing-page-root input:focus,
+.landing-modal-container input:focus,
+html.dark #landing-page input:focus,
+html.dark .landing-page-root input:focus,
+html.dark .landing-modal-container input:focus {
+  background-color: #ffffff !important;
+  border-color: #237227 !important;
+  box-shadow: 0 0 0 2px rgba(35, 114, 39, 0.15) !important;
+}
+
+#landing-page input::placeholder,
+.landing-page-root input::placeholder,
+.landing-modal-container input::placeholder,
+html.dark #landing-page input::placeholder,
+html.dark .landing-page-root input::placeholder,
+html.dark .landing-modal-container input::placeholder {
+  color: #94a3b8 !important;
+}
+
+#landing-page .text-slate-900,
+.landing-page-root .text-slate-900,
+.landing-modal-container .text-slate-900,
+html.dark #landing-page .text-slate-900,
+html.dark .landing-page-root .text-slate-900,
+html.dark .landing-modal-container .text-slate-900 {
+  color: #0f172a !important;
+}
+
+#landing-page .text-slate-800,
+.landing-page-root .text-slate-800,
+.landing-modal-container .text-slate-800,
+html.dark #landing-page .text-slate-800,
+html.dark .landing-page-root .text-slate-800,
+html.dark .landing-modal-container .text-slate-800 {
+  color: #1e293b !important;
+}
+
+#landing-page .text-slate-700,
+.landing-page-root .text-slate-700,
+.landing-modal-container .text-slate-700,
+html.dark #landing-page .text-slate-700,
+html.dark .landing-page-root .text-slate-700,
+html.dark .landing-modal-container .text-slate-700 {
+  color: #334155 !important;
+}
+
+#landing-page .text-slate-600,
+.landing-page-root .text-slate-600,
+.landing-modal-container .text-slate-600,
+html.dark #landing-page .text-slate-600,
+html.dark .landing-page-root .text-slate-600,
+html.dark .landing-modal-container .text-slate-600 {
+  color: #475569 !important;
+}
+
+#landing-page .text-slate-500,
+.landing-page-root .text-slate-500,
+.landing-modal-container .text-slate-500,
+html.dark #landing-page .text-slate-500,
+html.dark .landing-page-root .text-slate-500,
+html.dark .landing-modal-container .text-slate-500 {
+  color: #64748b !important;
+}
+
+#landing-page .text-slate-400,
+.landing-page-root .text-slate-400,
+.landing-modal-container .text-slate-400,
+html.dark #landing-page .text-slate-400,
+html.dark .landing-page-root .text-slate-400,
+html.dark .landing-modal-container .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+#landing-page .border-slate-200,
+.landing-page-root .border-slate-200,
+#landing-page .border-slate-200\/90,
+.landing-page-root .border-slate-200\/90,
+#landing-page .border-slate-100,
+.landing-page-root .border-slate-100,
+#landing-page .border-slate-100\/90,
+.landing-page-root .border-slate-100\/90,
+.landing-modal-container .border-slate-100,
+.landing-modal-container .border-slate-200,
+html.dark #landing-page .border-slate-200,
+html.dark .landing-page-root .border-slate-200,
+html.dark #landing-page .border-slate-200\/90,
+html.dark .landing-page-root .border-slate-200\/90,
+html.dark #landing-page .border-slate-100,
+html.dark .landing-page-root .border-slate-100,
+html.dark #landing-page .border-slate-100\/90,
+html.dark .landing-page-root .border-slate-100\/90,
+html.dark .landing-modal-container .border-slate-100,
+html.dark .landing-modal-container .border-slate-200 {
+  border-color: #e2e8f0 !important;
+}
+
+#landing-page .hover\:bg-slate-50:hover,
+.landing-page-root .hover\:bg-slate-50:hover,
+html.dark #landing-page .hover\:bg-slate-50:hover,
+html.dark .landing-page-root .hover\:bg-slate-50:hover {
+  background-color: #f8fafc !important;
+}
+
+/* ========================================================= */
+/* LANDING: scroll reveal animation                          */
+/* ========================================================= */
+.reveal {
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal-up { transform: translateY(28px); }
+.reveal-left { transform: translateX(-36px); }
+.reveal-right { transform: translateX(36px); }
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-up,
+  .reveal-left,
+  .reveal-right {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

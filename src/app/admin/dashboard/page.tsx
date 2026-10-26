@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminDashboardOverview } from '@/components/admin/AdminDashboardOverview';
@@ -19,6 +19,7 @@ import {
   Lock,
   Key,
   ShieldCheck,
+  RefreshCw,
   Download,
   Bell,
   AlertTriangle,
@@ -26,7 +27,8 @@ import {
   X,
   Users,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ChevronDown
 } from 'lucide-react';
 import { EditUserModal, UserDetail } from '@/components/admin/EditUserModal';
 import { AdminAnnouncements } from '@/components/admin/AdminAnnouncements';
@@ -48,6 +50,12 @@ export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [pendingVerifications, setPendingVerifications] = useState<number>(0);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [verificationFilterPreset, setVerificationFilterPreset] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [moderationFilterPreset, setModerationFilterPreset] = useState<string>('all');
+  const [recentPendingReports, setRecentPendingReports] = useState<any[]>([]);
+  const [isRefreshingQueue, setIsRefreshingQueue] = useState(false);
+  const [queueActiveTab, setQueueActiveTab] = useState<'summary' | 'tickets'>('summary');
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchUser, setSearchUser] = useState('');
@@ -85,6 +93,124 @@ export default function AdminDashboardPage() {
   const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
   const [adminPwdStatus, setAdminPwdStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isAdminUpdatingPwd, setIsAdminUpdatingPwd] = useState(false);
+
+  // Function to refresh Live Action Queue data across the platform
+  const refreshActionQueue = useCallback(async (silent = false) => {
+    if (!silent) setIsRefreshingQueue(true);
+    try {
+      const [aRes, uRes, fRes, rRes] = await Promise.all([
+        fetch('/api/admin/analytics'),
+        fetch('/api/admin/users'),
+        fetch('/api/admin/farmers?limit=1'),
+        fetch('/api/admin/reports')
+      ]);
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        setAnalytics(aData);
+      }
+      if (uRes.ok) {
+        const uData = await uRes.json();
+        setDbUsers(uData.users || []);
+      }
+      if (fRes.ok) {
+        const fData = await fRes.json();
+        if (fData.stats) {
+          setPendingVerifications(fData.stats.pending || 0);
+        }
+      }
+      if (rRes.ok) {
+        const rData = await rRes.json();
+        if (Array.isArray(rData.reports)) {
+          const pendingOnly = rData.reports.filter((r: any) => r.status === 'pending');
+          setRecentPendingReports(pendingOnly.slice(0, 5));
+        }
+      }
+    } catch (err) {
+      console.warn('Queue refresh warning:', err);
+    } finally {
+      if (!silent) setIsRefreshingQueue(false);
+    }
+  }, []);
+
+  // Click outside and ESC key listener for notification popover
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsNotifOpen(false);
+      }
+    }
+
+    if (isNotifOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isNotifOpen]);
+
+  // Periodic polling every 30s to keep live queues automatically refreshed
+  useEffect(() => {
+    const timer = setInterval(() => {
+      refreshActionQueue(true);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [refreshActionQueue]);
+
+  // Track previous count for audio alert & document title sync
+  const prevQueueTotalRef = useRef<number | null>(null);
+  const totalQueueAlerts = pendingVerifications + (analytics?.kpis?.pendingReports ?? 0);
+
+  useEffect(() => {
+    // 1. Sync browser tab title
+    if (typeof document !== 'undefined') {
+      if (totalQueueAlerts > 0) {
+        document.title = `(${totalQueueAlerts}) Admin Dashboard - Local Farm`;
+      } else {
+        document.title = 'Admin Dashboard - Local Farm';
+      }
+    }
+
+    // 2. Play subtle soft notification chime when new items arrive in queue
+    if (prevQueueTotalRef.current !== null && totalQueueAlerts > prevQueueTotalRef.current) {
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const ctx = new AudioContextClass();
+          const now = ctx.currentTime;
+          
+          const osc1 = ctx.createOscillator();
+          const gain1 = ctx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(587.33, now); // D5
+          gain1.gain.setValueAtTime(0.06, now);
+          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc1.connect(gain1);
+          gain1.connect(ctx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.25);
+
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(880, now + 0.08); // A5
+          gain2.gain.setValueAtTime(0.06, now + 0.08);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start(now + 0.08);
+          osc2.stop(now + 0.4);
+        }
+      } catch {}
+    }
+    prevQueueTotalRef.current = totalQueueAlerts;
+  }, [totalQueueAlerts]);
 
   useEffect(() => {
     const today = new Date();
@@ -368,12 +494,17 @@ export default function AdminDashboardPage() {
 
           {/* Right Controls: Live Alerts Bell + Night / Light Mode Toggle */}
           <div className="flex items-center gap-3">
-            <div className="relative">
+            <div className="relative" ref={notifDropdownRef}>
               <button
                 type="button"
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                onClick={() => {
+                  const next = !isNotifOpen;
+                  setIsNotifOpen(next);
+                  if (next) refreshActionQueue(true);
+                }}
                 className="relative p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all cursor-pointer shadow-2xs"
                 title="Admin Action Alerts"
+                aria-label="Admin Action Queue Notifications"
               >
                 <Bell className="h-4 w-4" />
                 {(pendingVerifications + (analytics?.kpis?.pendingReports ?? 0)) > 0 && (
@@ -387,11 +518,21 @@ export default function AdminDashboardPage() {
                 <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-2xl shadow-xl z-50 p-3 space-y-2 animate-fade-in">
                   <div className="flex items-center justify-between px-2 py-1 border-b border-slate-100 dark:border-[#393a3b]">
                     <span className="text-xs font-bold text-slate-900 dark:text-white">Live Admin Action Queue</span>
-                    <button onClick={() => setIsNotifOpen(false)} className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer">Close</button>
+                    <button 
+                      type="button"
+                      onClick={() => setIsNotifOpen(false)} 
+                      className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      Close
+                    </button>
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setActiveTab('verification'); setIsNotifOpen(false); }}
+                    onClick={() => {
+                      setVerificationFilterPreset('pending');
+                      setActiveTab('verification');
+                      setIsNotifOpen(false);
+                    }}
                     className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5">
@@ -407,7 +548,11 @@ export default function AdminDashboardPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setActiveTab('reports'); setIsNotifOpen(false); }}
+                    onClick={() => {
+                      setModerationFilterPreset('pending');
+                      setActiveTab('reports');
+                      setIsNotifOpen(false);
+                    }}
                     className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5">
@@ -456,7 +601,10 @@ export default function AdminDashboardPage() {
 
           {/* FARMER VERIFICATION & ACCREDITATION TAB (Option D with Printable Certificate) */}
           {activeTab === 'verification' && (
-            <AdminVerification />
+            <AdminVerification 
+              initialStatusFilter={verificationFilterPreset} 
+              onStatusChange={() => refreshActionQueue(true)}
+            />
           )}
 
           {/* MARKETPLACE FEED MANAGER TAB */}
@@ -569,7 +717,7 @@ export default function AdminDashboardPage() {
                         setCurrentPage(1);
                       }}
                       placeholder="Search name, email, @handle, or ID..."
-                      className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 transition-all"
+                      className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 transition-all"
                     />
                     {searchUser && (
                       <button 
@@ -585,61 +733,28 @@ export default function AdminDashboardPage() {
                   {/* Controls: Segmented Status Filter + Sort + Actions */}
                   <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     
-                    {/* Status Tabs */}
-                    <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-[#18191a] p-1 rounded-xl border border-slate-200/70 dark:border-[#3a3b3c] overflow-x-auto">
-                      <button
-                        onClick={() => { setUserStatusFilter('all'); setCurrentPage(1); }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                          userStatusFilter === 'all'
-                            ? 'bg-white dark:bg-[#2e2f30] text-slate-900 dark:text-white shadow-2xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
+                    {/* Status Dropdown */}
+                    <div className="relative inline-flex items-center">
+                      <select
+                        value={userStatusFilter}
+                        onChange={(e) => {
+                          setUserStatusFilter(e.target.value as any);
+                          setCurrentPage(1);
+                        }}
+                        aria-label="Filter by account status"
+                        className="appearance-none bg-white dark:bg-[#18191a] border border-slate-200/90 dark:border-[#3a3b3c] hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
                       >
-                        All ({userStats.total})
-                      </button>
-                      <button
-                        onClick={() => { setUserStatusFilter('active'); setCurrentPage(1); }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                          userStatusFilter === 'active'
-                            ? 'bg-farm-600 text-white shadow-2xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <span>Active</span>
-                        <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${userStatusFilter === 'active' ? 'bg-white/20 text-white' : 'bg-farm-100 dark:bg-farm-950 text-farm-800 dark:text-farm-300'}`}>
-                          {userStats.active}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => { setUserStatusFilter('pending'); setCurrentPage(1); }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                          userStatusFilter === 'pending'
-                            ? 'bg-amber-600 text-white shadow-2xs'
-                            : 'text-amber-700 dark:text-amber-400 hover:text-amber-800'
-                        }`}
-                      >
-                        <span>Pending</span>
-                        {userStats.pending > 0 && (
-                          <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${userStatusFilter === 'pending' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'}`}>
-                            {userStats.pending}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => { setUserStatusFilter('suspended'); setCurrentPage(1); }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                          userStatusFilter === 'suspended'
-                            ? 'bg-rose-600 text-white shadow-2xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        Suspended ({userStats.suspended})
-                      </button>
+                        <option value="all" className="dark:bg-[#242526]">All Status ({userStats.total})</option>
+                        <option value="active" className="dark:bg-[#242526]">Active ({userStats.active})</option>
+                        <option value="pending" className="dark:bg-[#242526]">Pending ({userStats.pending})</option>
+                        <option value="suspended" className="dark:bg-[#242526]">Suspended ({userStats.suspended})</option>
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
                     </div>
 
                     {/* Sort Selector */}
                     <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#18191a] border border-slate-200/90 dark:border-[#3a3b3c] rounded-xl px-3 py-2 text-xs font-medium text-slate-700 dark:text-[#b0b3b8]">
-                      <ArrowUpDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400 shrink-0" />
+                      <ArrowUpDown className="h-3.5 w-3.5 text-[#237227] dark:text-emerald-400 shrink-0" />
                       <select
                         value={`${sortColumn}-${sortDirection}`}
                         onChange={(e) => {
@@ -678,7 +793,7 @@ export default function AdminDashboardPage() {
                         setCreateUserError('');
                         setIsCreateUserModalOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-farm-600 hover:bg-farm-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       <span>Add User</span>
@@ -963,7 +1078,10 @@ export default function AdminDashboardPage() {
 
           {/* REPORT & MODERATION TAB */}
           {activeTab === 'reports' && (
-            <AdminModeration />
+            <AdminModeration 
+              initialFilter={moderationFilterPreset} 
+              onReportAction={() => refreshActionQueue(true)}
+            />
           )}
 
           {/* ANNOUNCEMENT TAB */}
@@ -976,7 +1094,17 @@ export default function AdminDashboardPage() {
 
           {/* SETTINGS TAB (Exact match to reference image with Night Mode & Light Mode) */}
           {activeTab === 'settings' && (
-            <AdminSettings adminEmail={adminUser?.email} />
+            <AdminSettings 
+              adminEmail={adminUser?.email} 
+              onAdminAccountUpdated={(updated) => {
+                setAdminUser((prev: any) => ({
+                  ...prev,
+                  full_name: updated.fullName,
+                  phone_number: updated.phoneNumber,
+                  email: updated.email
+                }));
+              }}
+            />
           )}
 
         </div>

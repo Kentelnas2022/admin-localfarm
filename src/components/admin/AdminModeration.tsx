@@ -242,7 +242,12 @@ export function generateOfficialNotice(
   return `Your account has been temporarily suspended for ${daysText} (Ticket: ${code}) due to verified violation of LocalFarm community guidelines regarding "${reason}". You may contact Municipal Agriculture Support if you wish to appeal.`;
 }
 
-export function AdminModeration() {
+interface AdminModerationProps {
+  initialFilter?: string;
+  onReportAction?: () => void;
+}
+
+export function AdminModeration({ initialFilter = 'all', onReportAction }: AdminModerationProps = {}) {
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [stats, setStats] = useState({
     totalReports: 0,
@@ -253,7 +258,13 @@ export function AdminModeration() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<string>(initialFilter);
+
+  useEffect(() => {
+    if (initialFilter) {
+      setFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -530,6 +541,7 @@ export function AdminModeration() {
         }
       }
       fetchReports(currentPage, filter, searchQuery, pageSize);
+      if (onReportAction) onReportAction();
     } catch (err: any) {
       showToast('Action Failed', err.message || 'Error executing action');
     } finally {

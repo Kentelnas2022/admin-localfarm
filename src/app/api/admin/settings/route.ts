@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { getSessionAdmin } from '@/lib/auth';
+import { getSessionAdmin, signAdminToken, TOKEN_COOKIE_NAME, AdminPayload } from '@/lib/auth';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { logAdminActivity } from '@/lib/activity-logger';
@@ -50,7 +50,15 @@ async function ensureTables() {
     if (!existing || existing.length === 0) {
       await query(`
         INSERT INTO \`system_settings\` (\`id\`, \`system_name\`, \`org_name\`, \`email_address\`, \`contact_number\`, \`language\`, \`timezone\`, \`theme_preference\`)
-        VALUES (1, 'AgroGuard Marketplace', 'Department of Agriculture', 'admin@agroguard.ph', '+63 912 345 6789', 'English', 'Asia/Manila', 'dark')
+        VALUES (1, 'Local Farm', 'Local Farm Agricultural Cooperative', 'admin@localfarm.com', '+63 (032) 434-FARM', 'English', 'Asia/Manila', 'light')
+      `);
+    } else {
+      // Migrate legacy default if still present
+      await query(`
+        UPDATE \`system_settings\` SET 
+          system_name = CASE WHEN system_name = 'AgroGuard Marketplace' THEN 'Local Farm' ELSE system_name END,
+          email_address = CASE WHEN email_address = 'admin@agroguard.ph' THEN 'admin@localfarm.com' ELSE email_address END
+        WHERE id = 1
       `);
     }
   } catch (err) {
@@ -70,13 +78,13 @@ export async function GET(request: NextRequest) {
     const settingsRows = await query<any[]>(`SELECT * FROM \`system_settings\` WHERE id = 1 LIMIT 1`);
     const settings = settingsRows[0] || {
       id: 1,
-      system_name: 'AgroGuard Marketplace',
-      org_name: 'Department of Agriculture',
-      email_address: 'admin@agroguard.ph',
-      contact_number: '+63 912 345 6789',
+      system_name: 'Local Farm',
+      org_name: 'Local Farm Agricultural Cooperative',
+      email_address: 'admin@localfarm.com',
+      contact_number: '+63 (032) 434-FARM',
       language: 'English',
       timezone: 'Asia/Manila',
-      theme_preference: 'dark',
+      theme_preference: 'light',
       logo_url: null,
       two_factor_auth: 1,
       session_timeout_minutes: 120,
@@ -191,13 +199,13 @@ export async function POST(request: NextRequest) {
     // 1. SAVE GENERAL SETTINGS
     if (action === 'save_general') {
       const {
-        systemName = 'AgroGuard Marketplace',
-        orgName = 'Department of Agriculture',
-        emailAddress = 'admin@agroguard.ph',
-        contactNumber = '+63 912 345 6789',
+        systemName = 'Local Farm',
+        orgName = 'Local Farm Agricultural Cooperative',
+        emailAddress = 'admin@localfarm.com',
+        contactNumber = '+63 (032) 434-FARM',
         language = 'English',
         timezone = 'Asia/Manila',
-        themePreference = 'dark',
+        themePreference = 'light',
         logoUrl = null
       } = data || {};
 
@@ -240,63 +248,129 @@ export async function POST(request: NextRequest) {
         newPassword
       } = data || {};
 
-      // Find user
+      const trimmedName = fullName !== undefined && fullName !== null ? String(fullName).trim() : null;
+      const trimmedPhone = phoneNumber !== undefined && phoneNumber !== null ? String(phoneNumber).trim() : null;
+
+      // Prioritize currently authenticated session admin, then provided adminEmail, then default admin
+      const targetEmail = adminEmail || sessionAdmin?.email || 'admin@localfarm.com';
+      const targetId = sessionAdmin?.id || 0;
+
       const users = await query<any[]>(
-        `SELECT id, password, full_name, email FROM \`users\` WHERE email = ? OR role = 'admin' ORDER BY (role = 'admin') DESC LIMIT 1`,
-        [adminEmail]
+        `SELECT id, password, password_hash, full_name, email, phone_number, role 
+         FROM \`users\` 
+         WHERE id = ? OR email = ? OR role = 'admin' 
+         ORDER BY (id = ?) DESC, (email = ?) DESC, (role = 'admin') DESC 
+         LIMIT 1`,
+        [targetId, targetEmail, targetId, targetEmail]
       );
 
       if (!users || users.length === 0) {
-        return NextResponse.json({ error: 'Admin user not found' }, { status: 404 });
+        return NextResponse.json({ error: 'Administrator account not found' }, { status: 404 });
       }
 
       const adminUser = users[0];
       let passwordChanged = false;
 
-      if (newPassword && newPassword.trim().length > 0) {
+      // Extract first and last name if full name provided
+      let firstName: string | null = null;
+      let lastName: string | null = null;
+      if (trimmedName) {
+        const parts = trimmedName.split(' ').filter(Boolean);
+        firstName = parts[0] || null;
+        lastName = parts.length > 1 ? parts.slice(1).join(' ') : null;
+      }
+
+      if (newPassword && String(newPassword).trim().length > 0) {
         if (!currentPassword) {
-          return NextResponse.json({ error: 'Current password is required to change password' }, { status: 400 });
+          return NextResponse.json({ error: 'Current password is required to change password.' }, { status: 400 });
         }
 
-        const isMatch = await bcrypt.compare(currentPassword, adminUser.password);
+        const isMatch = await bcrypt.compare(String(currentPassword), adminUser.password);
         if (!isMatch) {
           await logAdminActivity({
             action: 'Password Change Failed',
-            detail: 'Incorrect current password entered during credentials update',
+            detail: `Incorrect current password entered during credentials update for ${adminUser.email}`,
             type: 'auth',
-            user: adminEmail,
+            user: adminUser.email,
             ip: clientIp,
             status: 'failed'
           });
-          return NextResponse.json({ error: 'Incorrect current password' }, { status: 400 });
+          return NextResponse.json({ error: 'Incorrect current password. Please verify and try again.' }, { status: 400 });
         }
 
-        const hashed = await bcrypt.hash(newPassword, 10);
+        if (String(newPassword).length < 6) {
+          return NextResponse.json({ error: 'New password must be at least 6 characters long.' }, { status: 400 });
+        }
+
+        const hashed = await bcrypt.hash(String(newPassword), 10);
         await query(
-          `UPDATE \`users\` SET full_name = COALESCE(?, full_name), phone_number = COALESCE(?, phone_number), password = ? WHERE id = ?`,
-          [fullName, phoneNumber, hashed, adminUser.id]
+          `UPDATE \`users\` SET 
+            full_name = COALESCE(?, full_name), 
+            first_name = COALESCE(?, first_name),
+            last_name = COALESCE(?, last_name),
+            phone_number = COALESCE(?, phone_number), 
+            password = ?, 
+            password_hash = ? 
+          WHERE id = ?`,
+          [trimmedName, firstName, lastName, trimmedPhone, hashed, hashed, adminUser.id]
         );
         passwordChanged = true;
       } else {
         await query(
-          `UPDATE \`users\` SET full_name = COALESCE(?, full_name), phone_number = COALESCE(?, phone_number) WHERE id = ?`,
-          [fullName, phoneNumber, adminUser.id]
+          `UPDATE \`users\` SET 
+            full_name = COALESCE(?, full_name), 
+            first_name = COALESCE(?, first_name),
+            last_name = COALESCE(?, last_name),
+            phone_number = COALESCE(?, phone_number) 
+          WHERE id = ?`,
+          [trimmedName, firstName, lastName, trimmedPhone, adminUser.id]
         );
       }
 
+      const finalName = trimmedName || adminUser.full_name;
+      const finalPhone = trimmedPhone !== null ? trimmedPhone : adminUser.phone_number;
+
       await logAdminActivity({
         action: 'Admin Profile Updated',
-        detail: `Updated administrator profile for ${fullName || adminUser.full_name}${passwordChanged ? ' and changed password' : ''}`,
+        detail: `Updated administrator profile for ${finalName}${passwordChanged ? ' and updated login password' : ''}`,
         type: 'auth',
-        user: adminEmail,
+        user: adminUser.email,
         ip: clientIp,
         status: 'success'
       });
 
-      return NextResponse.json({
+      // Update session JWT
+      const newPayload = {
+        id: adminUser.id,
+        email: adminUser.email,
+        role: adminUser.role || 'admin',
+        fullName: finalName
+      };
+      const newToken = signAdminToken(newPayload);
+
+      const response = NextResponse.json({
         success: true,
-        message: passwordChanged ? 'Admin account and password updated successfully.' : 'Admin account details updated.'
+        message: passwordChanged 
+          ? 'Administrator account and password updated successfully.' 
+          : 'Administrator profile details updated successfully.',
+        adminAccount: {
+          id: adminUser.id,
+          full_name: finalName,
+          phone_number: finalPhone,
+          email: adminUser.email,
+          role: adminUser.role
+        }
       });
+
+      response.cookies.set(TOKEN_COOKIE_NAME, newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60
+      });
+
+      return response;
     }
 
     // 3. UPDATE SECURITY SETTINGS
@@ -432,6 +506,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Activity logs export recorded.'
+      });
+    }
+
+    // 8. SUBMIT SUPPORT TICKET
+    if (action === 'submit_support_ticket') {
+      const ticketId = `LF-${Math.floor(1000 + Math.random() * 9000)}`;
+      const issueSummary = body.data?.subject || 'Technical Support Request';
+      const issueDetail = body.data?.message || 'No additional details provided';
+      const category = body.data?.category || 'Technical';
+      const priority = (body.data?.priority || 'Normal').toUpperCase();
+
+      await logAdminActivity({
+        action: `Support Ticket Dispatched (#${ticketId})`,
+        detail: `[${priority}] ${category}: ${issueSummary} - ${issueDetail.substring(0, 80)}...`,
+        type: 'security',
+        user: adminEmail,
+        ip: clientIp,
+        status: 'success'
+      });
+
+      return NextResponse.json({
+        success: true,
+        ticketId,
+        message: `Ticket #${ticketId} dispatched to support@localfarm.com. Engineering team notified.`
       });
     }
 

@@ -290,9 +290,10 @@ export async function PUT(request: NextRequest) {
       logAction = `User Enforcement: ${typeLabel}`;
       logDetail = `Suspended "${report.reported_user_name}" [${typeLabel}] for "${updatedReason}" (${report.report_code}): ${officialNote}`;
 
-      // Suspend user in `users` table (by ID or name fallback)
+      // Suspend user in `users` table and revoke all active sessions
       if (targetUserId) {
         await query("UPDATE `users` SET status = 'suspended' WHERE id = ?", [targetUserId]);
+        await query("UPDATE `user_sessions` SET is_active = FALSE WHERE user_id = ?", [targetUserId]);
         try {
           await query(
             `INSERT INTO \`notifications\` (user_id, actor_id, type, title, content, entity_name, target_id, is_read)
@@ -309,6 +310,10 @@ export async function PUT(request: NextRequest) {
       } else if (report.reported_user_name) {
         await query(
           "UPDATE `users` SET status = 'suspended' WHERE full_name = ? OR username = ?",
+          [report.reported_user_name.trim(), report.reported_user_name.trim()]
+        );
+        await query(
+          "UPDATE `user_sessions` SET is_active = FALSE WHERE user_id IN (SELECT id FROM `users` WHERE full_name = ? OR username = ?)",
           [report.reported_user_name.trim(), report.reported_user_name.trim()]
         );
       }
