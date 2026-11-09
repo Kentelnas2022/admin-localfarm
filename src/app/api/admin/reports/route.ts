@@ -21,7 +21,9 @@ async function ensureReportsTable() {
         \`date_reported\` VARCHAR(50) NOT NULL,
         \`url\` VARCHAR(255) NOT NULL DEFAULT 'www.link123',
         \`severity\` ENUM('low', 'medium', 'high', 'critical') NOT NULL DEFAULT 'medium',
-        \`status\` ENUM('pending', 'high_risk', 'escalated', 'resolved', 'dismissed', 'suspended') NOT NULL DEFAULT 'pending',
+        \`status\` VARCHAR(50) NOT NULL DEFAULT 'pending',
+        \`is_archived\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`archived_at\` TIMESTAMP NULL,
         \`created_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         \`updated_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX \`idx_reports_status\` (\`status\`),
@@ -30,6 +32,26 @@ async function ensureReportsTable() {
         INDEX \`idx_reports_created\` (\`created_at\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    // Ensure is_archived and archived_at columns exist
+    try {
+      const colArchived = await query<any[]>(
+        "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reports' AND COLUMN_NAME = 'is_archived'"
+      );
+      if (!colArchived || colArchived.length === 0) {
+        await query("ALTER TABLE `reports` ADD COLUMN `is_archived` TINYINT(1) NOT NULL DEFAULT 0");
+        await query("ALTER TABLE `reports` ADD COLUMN `archived_at` TIMESTAMP NULL");
+      }
+    } catch (e) {
+      console.warn('Could not alter reports for is_archived:', e);
+    }
+
+    // Ensure status can store 'banned'
+    try {
+      await query("ALTER TABLE `reports` MODIFY COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'pending'");
+    } catch (e) {
+      console.warn('Could not modify reports status column:', e);
+    }
   } catch (err) {
     console.error('ensureReportsTable error:', err);
   }
@@ -47,14 +69,15 @@ export async function GET(request: NextRequest) {
     const filter = (searchParams.get('filter') || 'all').toLowerCase();
     const search = (searchParams.get('search') || '').trim();
 
-    // 1. Overall stats for the top 4 KPI cards
+    // 1. Overall stats for the top 4 KPI cards & navigation tabs
     const statsRows = await query<any[]>(`
       SELECT 
         COUNT(*) as totalReports,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN severity IN ('high', 'critical') OR status = 'high_risk' THEN 1 ELSE 0 END) as highRisk,
-        SUM(CASE WHEN status = 'escalated' THEN 1 ELSE 0 END) as escalated,
-        SUM(CASE WHEN status = 'suspended' THEN 1 ELSE 0 END) as suspended
+        SUM(CASE WHEN (is_archived = 0 OR is_archived IS NULL) AND status = 'pending' THEN 1 ELSE 0 END) as pending,
+        SUM(CASE WHEN (severity IN ('high', 'critical') OR status = 'high_risk') AND (is_archived = 0 OR is_archived IS NULL) THEN 1 ELSE 0 END) as highRisk,
+        SUM(CASE WHEN status = 'escalated' AND (is_archived = 0 OR is_archived IS NULL) THEN 1 ELSE 0 END) as escalated,
+        SUM(CASE WHEN status IN ('banned', 'suspended') THEN 1 ELSE 0 END) as suspended,
+        SUM(CASE WHEN is_archived = 1 OR status IN ('banned', 'suspended') THEN 1 ELSE 0 END) as archived
       FROM \`reports\`
     `);
     const statsRow = statsRows?.[0] || {};
@@ -65,6 +88,8 @@ export async function GET(request: NextRequest) {
       highRisk: Number(statsRow.highRisk ?? 0),
       escalated: Number(statsRow.escalated ?? 0),
       suspended: Number(statsRow.suspended ?? 0),
+      banned: Number(statsRow.suspended ?? 0),
+      archived: Number(statsRow.archived ?? 0),
     };
 
     // 2. Build filter conditions
@@ -72,7 +97,7 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (filter === 'pending') {
-      whereClauses.push("r.status = 'pending'");
+      whereClauses.push("(r.status = 'pending' AND (r.is_archived = 0 OR r.is_archived IS NULL))");
     } else if (filter === 'high_risk' || filter === 'high risk') {
       whereClauses.push("(r.severity IN ('high', 'critical') OR r.status = 'high_risk')");
     } else if (filter === 'escalated') {
@@ -81,10 +106,15 @@ export async function GET(request: NextRequest) {
       whereClauses.push("r.report_type = 'chat'");
     } else if (filter === 'content') {
       whereClauses.push("r.report_type = 'content'");
-    } else if (filter === 'suspended') {
-      whereClauses.push("r.status = 'suspended'");
+    } else if (filter === 'banned' || filter === 'suspended') {
+      whereClauses.push("r.status IN ('banned', 'suspended')");
+    } else if (filter === 'archived' || filter === 'archive') {
+      whereClauses.push("(r.is_archived = 1 OR r.status IN ('banned', 'suspended'))");
     } else if (filter === 'resolved') {
       whereClauses.push("r.status = 'resolved'");
+    } else {
+      // 'all': active (non-archived) cases
+      whereClauses.push("(r.is_archived = 0 OR r.is_archived IS NULL)");
     }
 
     if (search) {
@@ -126,9 +156,21 @@ export async function GET(request: NextRequest) {
       [...params, limit, offset]
     );
 
+    const fraudKeywords = ['advance', 'deposit', 'wire', 'scam', 'cheat', 'fake', 'stolen', 'pesticide', 'unauthorized', 'banned', 'bank transfer', 'gcash pin'];
+    const enrichedReports = (reports || []).map((r: any) => {
+      const text = `${r.reason || ''} ${r.statement || ''}`.toLowerCase();
+      const detectedKeywords = fraudKeywords.filter(k => text.includes(k));
+      const isAutoFlagged = detectedKeywords.length > 0 || r.severity === 'critical' || r.severity === 'high';
+      return {
+        ...r,
+        auto_flagged: isAutoFlagged,
+        detected_keywords: detectedKeywords,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      reports: reports || [],
+      reports: enrichedReports,
       stats,
       pagination: {
         currentPage: page,
@@ -279,16 +321,19 @@ export async function PUT(request: NextRequest) {
     let logAction = '';
     let logDetail = '';
 
+    let isArchivedUpdate: number | null = null;
+
     if (action === 'suspend') {
-      newStatus = 'suspended';
+      newStatus = 'banned';
+      isArchivedUpdate = 1;
       updatedReason = suspensionReason?.trim() || report.reason;
-      const typeLabel = suspensionType === 'permanent' ? 'Permanent Suspension' : `Temporary Suspension (${duration || '7'} Days)`;
+      const typeLabel = suspensionType === 'permanent' ? 'Permanent Ban' : `Temporary Ban (${duration || '7'} Days)`;
       const officialNote =
         suspensionNote?.trim() ||
         `Your account has been placed under ${typeLabel} due to confirmed violation: ${updatedReason} (Case ${report.report_code}). Please contact Municipal Agriculture Support if you wish to appeal.`;
 
-      logAction = `User Enforcement: ${typeLabel}`;
-      logDetail = `Suspended "${report.reported_user_name}" [${typeLabel}] for "${updatedReason}" (${report.report_code}): ${officialNote}`;
+      logAction = `User Enforcement: ${typeLabel} (Archived)`;
+      logDetail = `Banned "${report.reported_user_name}" [${typeLabel}], archived case (${report.report_code}) for "${updatedReason}": ${officialNote}`;
 
       // Suspend user in `users` table and revoke all active sessions
       if (targetUserId) {
@@ -317,6 +362,14 @@ export async function PUT(request: NextRequest) {
           [report.reported_user_name.trim(), report.reported_user_name.trim()]
         );
       }
+    } else if (action === 'archive') {
+      isArchivedUpdate = 1;
+      logAction = 'Case Archived';
+      logDetail = `Archived report case ${report.report_code} against ${report.reported_user_name}`;
+    } else if (action === 'unarchive') {
+      isArchivedUpdate = 0;
+      logAction = 'Case Restored from Archive';
+      logDetail = `Restored report case ${report.report_code} from archive`;
     } else if (action === 'warning') {
       newStatus = 'resolved';
       updatedReason = suspensionReason?.trim() || report.reason;
@@ -344,6 +397,7 @@ export async function PUT(request: NextRequest) {
       }
     } else if (action === 'unsuspend') {
       newStatus = 'resolved';
+      isArchivedUpdate = 0;
       logAction = 'User Suspension Lifted';
       logDetail = `Restored account access for "${report.reported_user_name}" regarding case ${report.report_code}`;
 
@@ -404,7 +458,15 @@ export async function PUT(request: NextRequest) {
       logDetail = `Marked report ${report.report_code} as resolved`;
     }
 
-    await query('UPDATE `reports` SET status = ?, reason = ? WHERE id = ?', [newStatus, updatedReason, id]);
+    if (isArchivedUpdate !== null) {
+      if (isArchivedUpdate === 1) {
+        await query('UPDATE `reports` SET status = ?, reason = ?, is_archived = 1, archived_at = NOW() WHERE id = ?', [newStatus, updatedReason, id]);
+      } else {
+        await query('UPDATE `reports` SET status = ?, reason = ?, is_archived = 0, archived_at = NULL WHERE id = ?', [newStatus, updatedReason, id]);
+      }
+    } else {
+      await query('UPDATE `reports` SET status = ?, reason = ? WHERE id = ?', [newStatus, updatedReason, id]);
+    }
 
     // Notify reporter when their ticket is resolved or actioned
     if ((action === 'resolve' || action === 'suspend' || action === 'delete_post') && report.reporter_id) {

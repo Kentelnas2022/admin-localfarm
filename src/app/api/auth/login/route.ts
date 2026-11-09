@@ -59,7 +59,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Strict role check: This web portal is strictly for ADMIN
-    if (user.role !== 'admin') {
+    const allowedAdminRoles = ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher'];
+    if (!allowedAdminRoles.includes(user.role)) {
       return NextResponse.json(
         {
           error:

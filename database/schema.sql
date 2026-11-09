@@ -576,13 +576,16 @@ CREATE TABLE `reports` (
   `date_reported` VARCHAR(50) NOT NULL,
   `url` VARCHAR(255) NOT NULL DEFAULT 'www.link123',
   `severity` ENUM('low', 'medium', 'high', 'critical') NOT NULL DEFAULT 'medium',
-  `status` ENUM('pending', 'high_risk', 'escalated', 'resolved', 'dismissed', 'suspended') NOT NULL DEFAULT 'pending',
+  `status` ENUM('pending', 'high_risk', 'escalated', 'resolved', 'dismissed', 'suspended', 'banned') NOT NULL DEFAULT 'pending',
+  `is_archived` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 if archived (e.g. banned account case or archived report)',
+  `archived_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'Timestamp when report case was archived',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   INDEX `idx_reports_status` (`status`),
   INDEX `idx_reports_type` (`report_type`),
   INDEX `idx_reports_severity` (`severity`),
+  INDEX `idx_reports_archived` (`is_archived`),
   INDEX `idx_reports_created` (`created_at` DESC),
   CONSTRAINT `fk_reports_reporter`
     FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`)

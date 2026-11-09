@@ -4,11 +4,24 @@ import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { logAdminActivity } from '@/lib/activity-logger';
 
+// Role-based helper: only Super Administrators have permission to view or manage user accounts
+function isSuperAdminRole(role?: string): boolean {
+  const r = (role || '').toLowerCase();
+  return r === 'super_admin' || r === 'admin';
+}
+
 export async function GET(req: NextRequest) {
   try {
     const admin = await getSessionAdmin();
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!isSuperAdminRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Only Super Administrators have permission to access the User Directory.' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -85,7 +98,8 @@ export async function GET(req: NextRequest) {
       params.push(wild, wild, wild);
     }
 
-    if (roleFilter && (roleFilter === 'admin' || roleFilter === 'user')) {
+    const validRoles = ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher', 'user'];
+    if (roleFilter && validRoles.includes(roleFilter)) {
       conditions.push('u.role = ?');
       params.push(roleFilter);
     }
@@ -109,6 +123,13 @@ export async function POST(req: NextRequest) {
     const admin = await getSessionAdmin();
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!isSuperAdminRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Only Super Administrators have permission to create user accounts.' },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();
@@ -147,8 +168,9 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
     const computedFullName = full_name.trim() || `${first_name.trim()} ${last_name.trim()}`.trim() || username.trim() || email.split('@')[0];
-    const cleanRole = role === 'admin' ? 'admin' : 'user';
-    const roleId = cleanRole === 'admin' ? 2 : 1;
+    const validAdminRoles = ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher'];
+    const cleanRole = validAdminRoles.includes(role) ? role : 'user';
+    const roleId = cleanRole === 'user' ? 1 : 2;
     const cleanStatus = ['active', 'suspended', 'pending'].includes(status) ? status : 'active';
     const cleanUsername = username.trim() || email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '') + Math.floor(Math.random() * 100);
     const shouldCreateFarmer = Boolean(is_farmer || farm_name.trim());
@@ -239,6 +261,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!isSuperAdminRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Only Super Administrators have permission to update user accounts.' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { 
       id, 
@@ -288,8 +317,9 @@ export async function PUT(req: NextRequest) {
     }
 
     const computedFullName = full_name?.trim() || `${first_name?.trim() || ''} ${last_name?.trim() || ''}`.trim() || null;
-    const cleanRole = role === 'admin' ? 'admin' : 'user';
-    const roleId = cleanRole === 'admin' ? 2 : 1;
+    const validAdminRoles = ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher'];
+    const cleanRole = validAdminRoles.includes(role) ? role : 'user';
+    const roleId = cleanRole === 'user' ? 1 : 2;
     const cleanStatus = ['active', 'suspended', 'pending'].includes(status) ? status : 'active';
 
     // Normalize gender to match MySQL ENUM('Male','Female','Other','Prefer not to say')
@@ -394,6 +424,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!isSuperAdminRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Only Super Administrators have permission to delete user accounts.' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = parseInt(searchParams.get('id') || '0', 10);
 
@@ -429,6 +466,13 @@ export async function PATCH(req: NextRequest) {
     const admin = await getSessionAdmin();
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!isSuperAdminRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Only Super Administrators have permission to modify user records.' },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();

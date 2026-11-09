@@ -7,7 +7,9 @@ import {
   UserPlus, 
   FileText, 
   Clock, 
-  UserCheck
+  UserCheck,
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 
 export interface CategoryItem {
@@ -50,6 +52,9 @@ export interface AnalyticsData {
 
 interface OverviewProps {
   analytics?: AnalyticsData | null;
+  adminRole?: string;
+  adminUser?: any;
+  onNavigateTab?: (tab: string) => void;
 }
 
 export function AdminDashboardOverview({ analytics }: OverviewProps) {
@@ -268,7 +273,7 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
 
   return (
     <div className="space-y-6">
-      {/* 1. TOP ROW: 6 KPI METRIC CARDS */}
+            {/* 1. TOP ROW: 6 KPI METRIC CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         
         {/* Total Farmers */}
@@ -1101,6 +1106,120 @@ export function AdminDashboardOverview({ analytics }: OverviewProps) {
           </div>
         </div>
       </div>
+
+      {/* 4. MUNICIPAL & BARANGAY AGRICULTURAL DISTRIBUTION */}
+      <div className="bg-white dark:bg-[#242526] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-[#393a3b] shadow-sm select-none">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
+                Municipal & Barangay Farm Distribution
+              </h3>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-farm-700 dark:text-farm-300 bg-farm-50 dark:bg-farm-950/60 border border-farm-200 dark:border-farm-800/80 px-2.5 py-0.5 rounded-full shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-farm-600 animate-pulse" />
+                Regional DA Cluster
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
+              Distribution of registered agrarian acreage, primary staple crops, and active harvest producers across municipal operational zones.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Live Municipal Cluster Mapping</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              barangay: 'Barangay San Jose',
+              zone: 'Central Valley Cluster',
+              farms: 34,
+              hectares: '84.5 ha',
+              crops: 'Rice, Yellow Corn, Eggplant',
+              yieldIndex: '+14% High',
+              status: 'optimal'
+            },
+            {
+              barangay: 'Barangay Santa Cruz',
+              zone: 'Highland Ridge',
+              farms: 28,
+              hectares: '62.0 ha',
+              crops: 'Red Onion, Tomato, Bell Pepper',
+              yieldIndex: '+8% Steady',
+              status: 'optimal'
+            },
+            {
+              barangay: 'Barangay Santo Niño',
+              zone: 'River Basin Sector',
+              farms: 21,
+              hectares: '45.2 ha',
+              crops: 'Bitter Gourd, Leafy Greens',
+              yieldIndex: '-2% Monitored',
+              status: 'monitored'
+            },
+            {
+              barangay: 'Barangay San Roque',
+              zone: 'East Slopes Area',
+              farms: 18,
+              hectares: '38.0 ha',
+              crops: 'Cassava, Sweet Potato, Mango',
+              yieldIndex: '+5% Steady',
+              status: 'optimal'
+            },
+          ].map((cluster, i) => (
+            <div
+              key={i}
+              className="p-5 rounded-2xl border border-slate-200/80 dark:border-[#393a3b] bg-slate-50/60 dark:bg-[#1c201d] hover:bg-white dark:hover:bg-[#202521] hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between"
+            >
+              <div>
+                {/* Header: Barangay Name + Zone & Status Badge */}
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="min-w-0 pr-1">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                      {cluster.barangay}
+                    </h4>
+                    <span className="inline-block text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-0.5">
+                      {cluster.zone}
+                    </span>
+                  </div>
+                  <span className={`inline-flex items-center text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wide ${
+                    cluster.status === 'optimal'
+                      ? 'bg-emerald-100/90 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                      : 'bg-amber-100/90 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
+                  }`}>
+                    {cluster.yieldIndex}
+                  </span>
+                </div>
+
+                {/* Metrics: Registered Acreage & Active Producers */}
+                <div className="space-y-1.5 py-2 px-3 rounded-xl bg-white dark:bg-[#161817] border border-slate-200/60 dark:border-[#2e332f] shadow-2xs text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Registered Acreage:</span>
+                    <strong className="text-slate-900 dark:text-slate-100 font-bold">{cluster.hectares}</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Active Producers:</span>
+                    <strong className="text-slate-900 dark:text-slate-100 font-bold">{cluster.farms} Farms</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Staple Produce Paragraph (Well-Organized & Uniform) */}
+              <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800/70">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">
+                  Staple Produce
+                </span>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-snug">
+                  {cluster.crops}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
+

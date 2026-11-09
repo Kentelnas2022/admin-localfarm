@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT /api/admin/farmers - Approve, reject, or reset farmer accreditation
+// PUT /api/admin/farmers - Approve, reject, or reset farmer accreditation (supports single or bulk ids)
 export async function PUT(request: NextRequest) {
   try {
     const admin = await getSessionAdmin();
@@ -257,85 +257,93 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, action, reason = '' } = body; // action: 'verify' | 'reject' | 'reset'
+    const { id, ids, action, reason = '' } = body; // action: 'verify' | 'reject' | 'reset'
+    const targetIds: number[] = Array.isArray(ids) && ids.length > 0 ? ids.map(Number) : (id ? [Number(id)] : []);
 
-    if (!id || !action) {
-      return NextResponse.json({ error: 'Farmer profile ID and action are required' }, { status: 400 });
+    if (targetIds.length === 0 || !action) {
+      return NextResponse.json({ error: 'Farmer profile ID(s) and action are required' }, { status: 400 });
     }
 
-    // Lookup profile
-    const profiles = await query<any[]>(
-      `SELECT fp.*, u.full_name, u.email 
-       FROM \`farmer_profiles\` fp 
-       INNER JOIN \`users\` u ON fp.user_id = u.id 
-       WHERE fp.id = ?`,
-      [id]
-    );
-
-    if (!profiles || profiles.length === 0) {
-      return NextResponse.json({ error: 'Farmer profile not found' }, { status: 404 });
-    }
-
-    const farmer = profiles[0];
-    const userId = farmer.user_id;
-    let newStatus = farmer.verification_status;
-    let newIsVerified = farmer.is_verified;
-    let logAction = '';
-    let logDetail = '';
-    let notifTitle = '';
-    let notifContent = '';
-
-    if (action === 'verify') {
-      newStatus = 'verified';
-      newIsVerified = 1;
-      logAction = 'Farmer Profile Verified';
-      logDetail = `Administrator accredited farmer "${farmer.full_name}" (${farmer.farm_name}, Code: ${farmer.farmer_code})`;
-      notifTitle = '✅ Producer Accreditation Approved';
-      notifContent = `Congratulations! Your farm accreditation for "${farmer.farm_name}" has been approved by the Department of Agriculture. You have received the verified producer badge.`;
-    } else if (action === 'reject') {
-      newStatus = 'rejected';
-      newIsVerified = 0;
-      logAction = 'Farmer Accreditation Rejected';
-      logDetail = `Administrator rejected accreditation for "${farmer.full_name}" (${farmer.farm_name}). Note: ${reason || 'Incomplete credentials'}`;
-      notifTitle = '⚠️ Accreditation Update';
-      notifContent = `Your farm accreditation request for "${farmer.farm_name}" requires attention. Reason: ${reason || 'Provided certification documents could not be verified. Please update your profile.'}`;
-    } else if (action === 'reset') {
-      newStatus = 'pending';
-      newIsVerified = 0;
-      logAction = 'Farmer Accreditation Reset to Pending';
-      logDetail = `Administrator reset accreditation status for "${farmer.full_name}" to pending audit`;
-    }
-
-    // Update farmer_profiles & users
-    await query('UPDATE `farmer_profiles` SET verification_status = ? WHERE id = ?', [newStatus, id]);
-    await query('UPDATE `users` SET is_verified = ? WHERE id = ?', [newIsVerified, userId]);
-
-    // Send in-app notification to the mobile farmer user
-    if (notifTitle) {
-      await query(
-        `INSERT INTO \`notifications\` 
-         (user_id, actor_id, type, title, content, entity_name, target_id, is_read) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
-        [userId, admin.id, 'verification', notifTitle, notifContent, 'farmer_profile', id]
-      );
-    }
-
-    // Audit log in admin_activity_logs
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
-    await logAdminActivity({
-      action: logAction,
-      detail: logDetail,
-      type: 'system',
-      user: admin.email || 'admin@localfarm.com',
-      ip: clientIp,
-      status: action === 'verify' ? 'success' : action === 'reject' ? 'warning' : 'success'
-    });
+    let processedCount = 0;
+
+    for (const targetId of targetIds) {
+      // Lookup profile
+      const profiles = await query<any[]>(
+        `SELECT fp.*, u.full_name, u.email 
+         FROM \`farmer_profiles\` fp 
+         INNER JOIN \`users\` u ON fp.user_id = u.id 
+         WHERE fp.id = ?`,
+        [targetId]
+      );
+
+      if (!profiles || profiles.length === 0) continue;
+
+      const farmer = profiles[0];
+      const userId = farmer.user_id;
+      let newStatus = farmer.verification_status;
+      let newIsVerified = farmer.is_verified;
+      let logAction = '';
+      let logDetail = '';
+      let notifTitle = '';
+      let notifContent = '';
+
+      if (action === 'verify') {
+        newStatus = 'verified';
+        newIsVerified = 1;
+        logAction = 'Farmer Profile Verified';
+        logDetail = `Administrator accredited farmer "${farmer.full_name}" (${farmer.farm_name}, Code: ${farmer.farmer_code})`;
+        notifTitle = '✅ Producer Accreditation Approved';
+        notifContent = `Congratulations! Your farm accreditation for "${farmer.farm_name}" has been approved by the Department of Agriculture. You have received the verified producer badge.`;
+      } else if (action === 'reject') {
+        newStatus = 'rejected';
+        newIsVerified = 0;
+        logAction = 'Farmer Accreditation Rejected';
+        logDetail = `Administrator rejected accreditation for "${farmer.full_name}" (${farmer.farm_name}). Note: ${reason || 'Incomplete credentials'}`;
+        notifTitle = '⚠️ Accreditation Update';
+        notifContent = `Your farm accreditation request for "${farmer.farm_name}" requires attention. Reason: ${reason || 'Provided certification documents could not be verified. Please update your profile.'}`;
+      } else if (action === 'reset') {
+        newStatus = 'pending';
+        newIsVerified = 0;
+        logAction = 'Farmer Accreditation Reset to Pending';
+        logDetail = `Administrator reset accreditation status for "${farmer.full_name}" to pending audit`;
+      }
+
+      // Update farmer_profiles & users
+      await query('UPDATE `farmer_profiles` SET verification_status = ? WHERE id = ?', [newStatus, targetId]);
+      await query('UPDATE `users` SET is_verified = ? WHERE id = ?', [newIsVerified, userId]);
+
+      // Send in-app notification to the mobile farmer user
+      if (notifTitle) {
+        try {
+          await query(
+            `INSERT INTO \`notifications\` 
+             (user_id, actor_id, type, title, content, entity_name, target_id, is_read) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+            [userId, admin.id, 'verification', notifTitle, notifContent, 'farmer_profile', targetId]
+          );
+        } catch {}
+      }
+
+      // Audit log in admin_activity_logs
+      await logAdminActivity({
+        action: logAction,
+        detail: logDetail,
+        type: 'system',
+        user: admin.email || 'admin@localfarm.com',
+        ip: clientIp,
+        status: action === 'verify' ? 'success' : action === 'reject' ? 'warning' : 'success'
+      });
+
+      processedCount++;
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Farmer "${farmer.full_name}" is now marked as ${newStatus}.`,
-      verification_status: newStatus,
-      is_verified: newIsVerified
+      message: targetIds.length > 1 
+        ? `Successfully processed ${processedCount} farmer accreditations as ${action}.`
+        : `Farmer profile is now marked as ${action === 'verify' ? 'verified' : action === 'reject' ? 'rejected' : 'pending'}.`,
+      processedCount
     });
   } catch (error: any) {
     console.error('PUT /api/admin/farmers error:', error);

@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSessionAdmin } from '@/lib/auth';
 import { query } from '@/lib/db';
 
@@ -14,7 +14,8 @@ export async function GET() {
       [admin.id]
     );
 
-    if (!users || users.length === 0 || users[0].role !== 'admin') {
+    const allowedAdminRoles = ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher'];
+    if (!users || users.length === 0 || !allowedAdminRoles.includes(users[0].role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

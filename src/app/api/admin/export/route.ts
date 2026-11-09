@@ -212,6 +212,71 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    if (type === 'da_report') {
+      const farmers = await query<any[]>(`
+        SELECT 
+          fp.farmer_code,
+          u.full_name,
+          fp.farm_name,
+          fp.farm_location,
+          fp.hectares,
+          fp.crops,
+          fp.rsbsa_number,
+          fp.verification_status,
+          fp.certifications,
+          fp.created_at
+        FROM \`farmer_profiles\` fp
+        INNER JOIN \`users\` u ON fp.user_id = u.id
+        ORDER BY fp.farm_location ASC, fp.id ASC
+      `);
+
+      const totalHectares = farmers.reduce((sum, f) => sum + parseFloat(f.hectares || '0'), 0).toFixed(1);
+      const philgapCount = farmers.filter(f => (f.certifications || '').toLowerCase().includes('philgap')).length;
+      const rsbsaCount = farmers.filter(f => Boolean(f.rsbsa_number && String(f.rsbsa_number).trim() !== '')).length;
+
+      const headers = [
+        'Accreditation Code',
+        'Registered Producer Name',
+        'Farm Facility Name',
+        'Municipal / Barangay Location',
+        'Arable Land (Hectares)',
+        'Registered Crops / Produce',
+        'RSBSA Registry Number',
+        'PhilGAP Accreditation Status',
+        'Compliance Certifications',
+        'Audit Enrolment Date'
+      ];
+
+      const csvLines = [
+        '# DEPARTMENT OF AGRICULTURE & MUNICIPAL AGRICULTURE OFFICE (MAO) OFFICIAL AUDIT',
+        `# Generated Date: ${dateStr}`,
+        `# Total Registered Producers: ${farmers.length}`,
+        `# Total Registered Arable Area: ${totalHectares} Hectares`,
+        `# PhilGAP Accredited: ${philgapCount} | RSBSA Verified: ${rsbsaCount}`,
+        '# --------------------------------------------------------------------------------',
+        headers.join(','),
+        ...farmers.map(f => [
+          csvEscape(f.farmer_code || 'LF-PENDING'),
+          csvEscape(f.full_name),
+          csvEscape(f.farm_name),
+          csvEscape(f.farm_location),
+          csvEscape(f.hectares || '1.0'),
+          csvEscape(f.crops),
+          csvEscape(f.rsbsa_number || 'N/A'),
+          csvEscape(f.verification_status === 'verified' ? 'ACCREDITED' : 'PENDING EVALUATION'),
+          csvEscape(f.certifications || 'LocalFarm Standard'),
+          csvEscape(f.created_at ? new Date(f.created_at).toLocaleDateString() : dateStr)
+        ].join(','))
+      ];
+
+      return new NextResponse(csvLines.join('\r\n'), {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="DA-MAO-Agriculture-Compliance-Report-${dateStr}.csv"`
+        }
+      });
+    }
+
     return NextResponse.json({ error: 'Invalid export type requested' }, { status: 400 });
 
   } catch (error: any) {

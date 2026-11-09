@@ -57,7 +57,7 @@ export interface UserDetail {
   email: string;
   phone_number?: string | null;
   gender?: string | null;
-  role: 'admin' | 'user';
+  role: string;
   status?: 'active' | 'suspended' | 'pending';
   is_verified?: number;
   avatar_url?: string | null;
@@ -284,11 +284,17 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                   #{user.id}
                 </span>
                 <span className={`text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider ${
-                  user.role === 'admin' 
+                  user.role === 'admin' || user.role === 'super_admin'
                     ? 'bg-[#237227]/15 dark:bg-[#237227]/30 text-[#237227] dark:text-emerald-400 border border-[#237227]/30' 
+                    : user.role === 'inspector'
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200'
+                    : user.role === 'moderator'
+                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200'
+                    : user.role === 'dispatcher'
+                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200'
                     : 'bg-slate-100 dark:bg-[#3a3b3c] text-slate-600 dark:text-[#b0b3b8] border border-slate-200/60 dark:border-transparent'
                 }`}>
-                  {user.role === 'admin' ? 'ADMIN' : 'FARMER'}
+                  {user.role === 'super_admin' ? 'SUPER ADMIN' : user.role === 'inspector' ? 'INSPECTOR' : user.role === 'moderator' ? 'MODERATOR' : user.role === 'dispatcher' ? 'DISPATCHER' : user.role === 'admin' ? 'ADMIN' : 'FARMER'}
                 </span>
               </div>
               <p className="text-xs text-slate-400 dark:text-[#8a8d91] mt-1 font-normal">
@@ -476,19 +482,50 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Account Role
+                      Account Role & Privileges
                     </label>
                     <div className="relative">
                       <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <select
                         value={formData.role || 'user'}
-                        onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'user' })}
-                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all cursor-pointer"
+                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all cursor-pointer font-medium"
                       >
-                        <option value="user">User (Farmer / Member)</option>
-                        <option value="admin">Administrator (Full Access)</option>
+                        <option value="user">User (Farmer / Buyer)</option>
+                        <option value="super_admin">Super Administrator (Full System Authority)</option>
+                        <option value="inspector">Agriculture Inspector (Accreditation & Prices)</option>
+                        <option value="moderator">Community Moderator (Safety & Marketplace)</option>
+                        <option value="dispatcher">Calamity Dispatcher (Emergency Alerts)</option>
+                        <option value="admin">Legacy Administrator (Super Admin)</option>
                       </select>
                     </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-tight">
+                      {(formData.role === 'super_admin' || formData.role === 'admin') && (
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                          👑 Super Admin: Has full access to User Directory, System Settings, and all features.
+                        </span>
+                      )}
+                      {formData.role === 'inspector' && (
+                        <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                          🌾 Inspector: Accreditation & Bantay Presyo access only. User Directory is restricted.
+                        </span>
+                      )}
+                      {formData.role === 'moderator' && (
+                        <span className="text-blue-700 dark:text-blue-400 font-semibold">
+                          🛡️ Moderator: Moderation, Marketplace & Stories only. User Directory is restricted.
+                        </span>
+                      )}
+                      {formData.role === 'dispatcher' && (
+                        <span className="text-rose-700 dark:text-rose-400 font-semibold">
+                          🚨 Dispatcher: Disaster Alerts & Announcements only. User Directory is restricted.
+                        </span>
+                      )}
+                      {formData.role === 'user' && (
+                        <span className="text-slate-400">
+                          Mobile app account. Cannot log into this admin management portal.
+                        </span>
+                      )}
+                    </p>
                   </div>
 
                   <div>
@@ -878,11 +915,11 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-300">System Role</span>
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-md uppercase ${
-                      user.role === 'admin' 
+                      ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher'].includes(user.role)
                         ? 'bg-[#237227]/15 dark:bg-[#237227]/30 text-[#237227] dark:text-emerald-400 border border-[#237227]/30' 
                         : 'bg-slate-200/80 dark:bg-[#3a3b3c] text-slate-700 dark:text-slate-300'
                     }`}>
-                      {user.role === 'admin' ? 'Administrator' : 'Standard Farmer'}
+                      {user.role === 'super_admin' ? 'Super Administrator' : user.role === 'inspector' ? 'Agriculture Inspector' : user.role === 'moderator' ? 'Community Moderator' : user.role === 'dispatcher' ? 'Calamity Dispatcher' : user.role === 'admin' ? 'Administrator' : 'Standard Farmer'}
                     </span>
                   </div>
 

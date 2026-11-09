@@ -28,6 +28,7 @@ interface AdminSidebarProps {
   pendingCount?: number;
   pendingVerificationCount?: number;
   adminEmail?: string;
+  adminRole?: string;
 }
 
 interface NavSubItem {
@@ -52,7 +53,8 @@ export function AdminSidebar({
   onToggleCollapse,
   pendingCount = 5,
   pendingVerificationCount = 0,
-  adminEmail = 'admin@localfarm.com'
+  adminEmail = 'admin@localfarm.com',
+  adminRole = 'super_admin'
 }: AdminSidebarProps) {
   const navTree: NavGroupItem[] = [
     {
@@ -106,6 +108,44 @@ export function AdminSidebar({
     },
   ];
 
+  // Role-Based Access Control (RBAC) Permitted Tab List
+  // Strictly enforce: ONLY super_admin (and system admin) have access to 'users' (Users Directory)
+  const rolePermissions: Record<string, string[]> = {
+    super_admin: ['dashboard', 'users', 'verification', 'marketplace', 'prices', 'stories', 'announcements', 'reports', 'emergency', 'settings'],
+    admin: ['dashboard', 'users', 'verification', 'marketplace', 'prices', 'stories', 'announcements', 'reports', 'emergency', 'settings'],
+    inspector: ['dashboard', 'verification', 'prices', 'announcements'],
+    moderator: ['dashboard', 'marketplace', 'stories', 'reports', 'announcements'],
+    dispatcher: ['dashboard', 'emergency', 'announcements'],
+  };
+
+  const cleanRole = adminRole?.toLowerCase() || '';
+  const allowedTabs = rolePermissions[cleanRole] || (cleanRole === 'admin' ? rolePermissions.super_admin : ['dashboard']);
+
+  // Filter navTree according to allowed tabs for current admin role
+  const filteredNavTree = navTree
+    .map(group => {
+      if (!group.items) {
+        return allowedTabs.includes(group.id) ? group : null;
+      }
+      const visibleSubItems = group.items.filter(item => allowedTabs.includes(item.id));
+      if (visibleSubItems.length === 0) return null;
+      return {
+        ...group,
+        items: visibleSubItems,
+      };
+    })
+    .filter(Boolean) as NavGroupItem[];
+
+  const roleBadgeConfig: Record<string, { label: string; bg: string; text: string }> = {
+    super_admin: { label: 'SUPER ADMIN', bg: 'bg-emerald-100 dark:bg-emerald-950/60', text: 'text-emerald-800 dark:text-emerald-300' },
+    admin: { label: 'ADMIN', bg: 'bg-emerald-100 dark:bg-emerald-950/60', text: 'text-emerald-800 dark:text-emerald-300' },
+    inspector: { label: 'INSPECTOR', bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-800 dark:text-amber-300' },
+    moderator: { label: 'MODERATOR', bg: 'bg-blue-100 dark:bg-blue-950/60', text: 'text-blue-800 dark:text-blue-300' },
+    dispatcher: { label: 'DISPATCHER', bg: 'bg-rose-100 dark:bg-rose-950/60', text: 'text-rose-800 dark:text-rose-300' },
+  };
+
+  const currentBadge = roleBadgeConfig[cleanRole] || { label: 'OPERATOR', bg: 'bg-slate-100 dark:bg-[#3a3b3c]', text: 'text-slate-700 dark:text-slate-300' };
+
   // Map to find which parent group contains a given tab id
   function getParentGroupId(tabId: string): string | null {
     for (const group of navTree) {
@@ -118,6 +158,16 @@ export function AdminSidebar({
 
   // State of open/closed dropdowns (default closed, opens on click)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const parent = getParentGroupId(activeTab);
+    if (parent) {
+      setOpenGroups(prev => ({
+        ...prev,
+        [parent]: true,
+      }));
+    }
+  }, [activeTab]);
 
   function toggleGroup(groupId: string) {
     if (isCollapsed) {
@@ -155,7 +205,7 @@ export function AdminSidebar({
 
         {/* Navigation Menu with Clean Accordion Dropdowns */}
         <nav className="p-3 overflow-y-auto flex-1 space-y-1.5">
-          {navTree.map((group) => {
+          {filteredNavTree.map((group) => {
             const GroupIcon = group.icon;
             const hasSubItems = Boolean(group.items && group.items.length > 0);
 
@@ -315,7 +365,7 @@ export function AdminSidebar({
         >
           <div className="relative shrink-0 flex items-center justify-center">
             <div className="h-9 w-9 rounded-full bg-[#237227]/15 text-[#237227] dark:text-[#31a24c] font-extrabold flex items-center justify-center text-xs">
-              AD
+              {cleanRole === 'inspector' ? 'IN' : cleanRole === 'moderator' ? 'MD' : cleanRole === 'dispatcher' ? 'DP' : 'AD'}
             </div>
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-[#237227] ring-2 ring-white dark:ring-[#242526]" />
           </div>
@@ -325,7 +375,14 @@ export function AdminSidebar({
               ? 'opacity-0 max-w-0 -translate-x-2 pointer-events-none' 
               : 'opacity-100 max-w-[140px] translate-x-0 ml-3 flex-1'
           }`}>
-            <div className="text-xs font-bold text-slate-800 dark:text-[#e4e6eb] truncate">Administrator</div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-800 dark:text-[#e4e6eb] truncate">
+                {cleanRole === 'inspector' ? 'Inspector' : cleanRole === 'moderator' ? 'Moderator' : cleanRole === 'dispatcher' ? 'Dispatcher' : 'Administrator'}
+              </span>
+              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${currentBadge.bg} ${currentBadge.text}`}>
+                {currentBadge.label}
+              </span>
+            </div>
             <div className="text-[10px] text-slate-400 dark:text-[#b0b3b8] truncate">{adminEmail}</div>
           </div>
         </div>

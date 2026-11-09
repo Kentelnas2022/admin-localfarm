@@ -28,7 +28,10 @@ import {
   Users,
   Clock,
   AlertCircle,
-  ChevronDown
+  ChevronDown,
+  Volume2,
+  VolumeX,
+  TrendingUp
 } from 'lucide-react';
 import { EditUserModal, UserDetail } from '@/components/admin/EditUserModal';
 import { AdminAnnouncements } from '@/components/admin/AdminAnnouncements';
@@ -49,6 +52,11 @@ export default function AdminDashboardPage() {
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [pendingVerifications, setPendingVerifications] = useState<number>(0);
+  const [pendingReports, setPendingReports] = useState<number>(0);
+  const [verificationFilterKey, setVerificationFilterKey] = useState<number>(0);
+  const [moderationFilterKey, setModerationFilterKey] = useState<number>(0);
+  const mainContentRef = useRef<HTMLElement | null>(null);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [verificationFilterPreset, setVerificationFilterPreset] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
   const [moderationFilterPreset, setModerationFilterPreset] = useState<string>('all');
@@ -76,6 +84,7 @@ export default function AdminDashboardPage() {
     phone_number: '',
     gender: 'Prefer not to say',
     password: '',
+    role: 'user',
     status: 'active',
     is_farmer: false,
     farm_name: '',
@@ -89,39 +98,60 @@ export default function AdminDashboardPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(5);
   const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
+  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'community' | 'staff' | 'super_admin' | 'inspector' | 'moderator' | 'dispatcher'>('all');
   const [adminNewPassword, setAdminNewPassword] = useState('');
   const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
   const [adminPwdStatus, setAdminPwdStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isAdminUpdatingPwd, setIsAdminUpdatingPwd] = useState(false);
 
+  // RBAC Role & Allowed Tabs Definition
+  // Strictly enforce: ONLY super_admin (and system admin) have access to 'users' (Users Directory)
+  const userRole = (adminUser?.role || '').toLowerCase();
+  const isSuperAdmin = userRole === 'super_admin' || userRole === 'admin';
+  const rolePermissions: Record<string, string[]> = {
+    super_admin: ['dashboard', 'users', 'verification', 'marketplace', 'prices', 'stories', 'announcements', 'reports', 'emergency', 'settings'],
+    admin: ['dashboard', 'users', 'verification', 'marketplace', 'prices', 'stories', 'announcements', 'reports', 'emergency', 'settings'],
+    inspector: ['dashboard', 'verification', 'prices', 'announcements'],
+    moderator: ['dashboard', 'marketplace', 'stories', 'reports', 'announcements'],
+    dispatcher: ['dashboard', 'emergency', 'announcements'],
+  };
+  const allowedTabs = rolePermissions[userRole] || (isSuperAdmin ? rolePermissions.super_admin : ['dashboard']);
+
   // Function to refresh Live Action Queue data across the platform
   const refreshActionQueue = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshingQueue(true);
     try {
+      const isSuper = adminUser?.role === 'super_admin' || adminUser?.role === 'admin';
       const [aRes, uRes, fRes, rRes] = await Promise.all([
         fetch('/api/admin/analytics'),
-        fetch('/api/admin/users'),
+        isSuper ? fetch('/api/admin/users') : Promise.resolve(null),
         fetch('/api/admin/farmers?limit=1'),
         fetch('/api/admin/reports')
       ]);
-      if (aRes.ok) {
+      if (aRes && aRes.ok) {
         const aData = await aRes.json();
         setAnalytics(aData);
+        if (aData?.kpis?.pendingReports !== undefined) {
+          setPendingReports(Number(aData.kpis.pendingReports));
+        }
       }
-      if (uRes.ok) {
+      if (uRes && uRes.ok) {
         const uData = await uRes.json();
         setDbUsers(uData.users || []);
       }
-      if (fRes.ok) {
+      if (fRes && fRes.ok) {
         const fData = await fRes.json();
         if (fData.stats) {
-          setPendingVerifications(fData.stats.pending || 0);
+          setPendingVerifications(Number(fData.stats.pending || 0));
         }
       }
-      if (rRes.ok) {
+      if (rRes && rRes.ok) {
         const rData = await rRes.json();
-        if (Array.isArray(rData.reports)) {
+        if (rData.stats) {
+          setPendingReports(Number(rData.stats.pending || 0));
+        } else if (Array.isArray(rData.reports)) {
           const pendingOnly = rData.reports.filter((r: any) => r.status === 'pending');
+          setPendingReports(pendingOnly.length);
           setRecentPendingReports(pendingOnly.slice(0, 5));
         }
       }
@@ -130,7 +160,7 @@ export default function AdminDashboardPage() {
     } finally {
       if (!silent) setIsRefreshingQueue(false);
     }
-  }, []);
+  }, [adminUser]);
 
   // Click outside and ESC key listener for notification popover
   useEffect(() => {
@@ -165,7 +195,8 @@ export default function AdminDashboardPage() {
 
   // Track previous count for audio alert & document title sync
   const prevQueueTotalRef = useRef<number | null>(null);
-  const totalQueueAlerts = pendingVerifications + (analytics?.kpis?.pendingReports ?? 0);
+  const totalQueueAlerts = (allowedTabs.includes('verification') ? pendingVerifications : 0) + 
+                           (allowedTabs.includes('reports') ? pendingReports : 0);
 
   useEffect(() => {
     // 1. Sync browser tab title
@@ -178,7 +209,7 @@ export default function AdminDashboardPage() {
     }
 
     // 2. Play subtle soft notification chime when new items arrive in queue
-    if (prevQueueTotalRef.current !== null && totalQueueAlerts > prevQueueTotalRef.current) {
+    if (prevQueueTotalRef.current !== null && totalQueueAlerts > prevQueueTotalRef.current && !isAudioMuted) {
       try {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioContextClass) {
@@ -230,23 +261,34 @@ export default function AdminDashboardPage() {
         const data = await res.json();
         setAdminUser(data.user);
 
-        const [aRes, uRes, fRes] = await Promise.all([
+        const isSuper = data.user?.role === 'super_admin' || data.user?.role === 'admin';
+        const [aRes, uRes, fRes, rRes] = await Promise.all([
           fetch('/api/admin/analytics'),
-          fetch('/api/admin/users'),
+          isSuper ? fetch('/api/admin/users') : Promise.resolve(null),
           fetch('/api/admin/farmers?limit=1'),
+          fetch('/api/admin/reports?limit=1'),
         ]);
-        if (aRes.ok) {
+        if (aRes && aRes.ok) {
           const aData = await aRes.json();
           setAnalytics(aData);
+          if (aData?.kpis?.pendingReports !== undefined) {
+            setPendingReports(Number(aData.kpis.pendingReports));
+          }
         }
-        if (uRes.ok) {
+        if (uRes && uRes.ok) {
           const uData = await uRes.json();
           setDbUsers(uData.users || []);
         }
-        if (fRes.ok) {
+        if (fRes && fRes.ok) {
           const fData = await fRes.json();
           if (fData.stats) {
-            setPendingVerifications(fData.stats.pending || 0);
+            setPendingVerifications(Number(fData.stats.pending || 0));
+          }
+        }
+        if (rRes && rRes.ok) {
+          const rData = await rRes.json();
+          if (rData.stats) {
+            setPendingReports(Number(rData.stats.pending || 0));
           }
         }
       } catch {
@@ -258,6 +300,14 @@ export default function AdminDashboardPage() {
 
     checkAuth();
   }, [router]);
+
+  // RBAC Permission Guard: Ensure logged-in role only views authorized tabs
+  useEffect(() => {
+    if (!adminUser) return;
+    if (!allowedTabs.includes(activeTab)) {
+      setActiveTab('dashboard');
+    }
+  }, [adminUser, activeTab, allowedTabs]);
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -336,6 +386,7 @@ export default function AdminDashboardPage() {
           phone_number: '',
           gender: 'Prefer not to say',
           password: '',
+          role: 'user',
           status: 'active',
           is_farmer: false,
           farm_name: '',
@@ -393,16 +444,30 @@ export default function AdminDashboardPage() {
     }
   }
 
-  // Filtered & Sorted Users (Excluding administrators per user requirement)
-  const nonAdminUsers = dbUsers.filter(u => u.role !== 'admin');
+  // Filtered & Sorted Users with Role & Staff Management for Super Admin
+  const staffRoles = ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher'];
   const userStats = {
-    total: nonAdminUsers.length,
-    active: nonAdminUsers.filter(u => (u.status || 'active') === 'active').length,
-    pending: nonAdminUsers.filter(u => u.status === 'pending').length,
-    suspended: nonAdminUsers.filter(u => u.status === 'suspended').length,
+    total: dbUsers.length,
+    community: dbUsers.filter(u => !staffRoles.includes(u.role)).length,
+    staff: dbUsers.filter(u => staffRoles.includes(u.role)).length,
+    superAdminCount: dbUsers.filter(u => u.role === 'super_admin' || u.role === 'admin').length,
+    inspectorCount: dbUsers.filter(u => u.role === 'inspector').length,
+    moderatorCount: dbUsers.filter(u => u.role === 'moderator').length,
+    dispatcherCount: dbUsers.filter(u => u.role === 'dispatcher').length,
+    active: dbUsers.filter(u => (u.status || 'active') === 'active').length,
+    pending: dbUsers.filter(u => u.status === 'pending').length,
+    suspended: dbUsers.filter(u => u.status === 'suspended').length,
   };
 
-  const filteredUsers = nonAdminUsers.filter(u => {
+  const filteredUsers = dbUsers.filter(u => {
+    // Role filter
+    const isStaff = staffRoles.includes(u.role);
+    if (userRoleFilter === 'community' && isStaff) return false;
+    if (userRoleFilter === 'staff' && !isStaff) return false;
+    if (userRoleFilter === 'super_admin' && !(u.role === 'super_admin' || u.role === 'admin')) return false;
+    if (['inspector', 'moderator', 'dispatcher'].includes(userRoleFilter) && u.role !== userRoleFilter) return false;
+
+    // Status filter
     if (userStatusFilter !== 'all') {
       const userStatus = u.status || 'active';
       if (userStatus !== userStatusFilter) return false;
@@ -415,6 +480,7 @@ export default function AdminDashboardPage() {
            (u.email || '').toLowerCase().includes(query) ||
            (u.username || '').toLowerCase().includes(query) ||
            (u.phone_number || '').toLowerCase().includes(query) ||
+           (u.role || '').toLowerCase().includes(query) ||
            String(u.id).includes(query);
   });
 
@@ -447,6 +513,22 @@ export default function AdminDashboardPage() {
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedUsers = sortedUsers.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
+  const handleOpenVerificationQueue = () => {
+    setVerificationFilterPreset('pending');
+    setVerificationFilterKey(prev => prev + 1);
+    setActiveTab('verification');
+    setIsNotifOpen(false);
+    mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenModerationQueue = () => {
+    setModerationFilterPreset('pending');
+    setModerationFilterKey(prev => prev + 1);
+    setActiveTab('reports');
+    setIsNotifOpen(false);
+    mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="h-screen flex flex-col md:flex-row bg-[#f8f9fa] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans overflow-hidden">
       
@@ -457,20 +539,28 @@ export default function AdminDashboardPage() {
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        pendingCount={analytics?.kpis?.pendingReports ?? 7}
+        pendingCount={pendingReports}
         pendingVerificationCount={pendingVerifications}
         adminEmail={adminUser?.email || 'admin@localfarm.com'}
+        adminRole={adminUser?.role || 'super_admin'}
       />
 
       {/* 2. MAIN CONTENT AREA (Smooth widening when sidebar collapses, independent scrolling with stable gutter) */}
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto [scrollbar-gutter:stable]">
+      <main ref={mainContentRef} className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto [scrollbar-gutter:stable]">
         
         {/* Top Header matching clean layout with Night/Light mode toggle */}
         <div className="bg-white dark:bg-slate-900 px-8 py-5 border-b border-slate-200 dark:border-slate-800 shrink-0 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-black dark:text-white leading-tight">
-              {activeTab === 'dashboard'
-                ? 'Dashboard'
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-black dark:text-white leading-tight">
+                {activeTab === 'dashboard'
+                  ? adminUser?.role === 'inspector'
+                    ? 'Inspector Operations Dashboard'
+                    : adminUser?.role === 'moderator'
+                    ? 'Moderation & Safety Dashboard'
+                    : adminUser?.role === 'dispatcher'
+                    ? 'Emergency Dispatch Command'
+                    : 'Dashboard'
                 : activeTab === 'prices'
                 ? 'Agricultural Price Index ("Bantay Presyo")'
                 : activeTab === 'stories'
@@ -489,6 +579,20 @@ export default function AdminDashboardPage() {
                 ? 'Announcements'
                 : 'Settings'}
             </h1>
+              {adminUser?.role && (
+                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border tracking-wider ${
+                  adminUser.role === 'super_admin' || adminUser.role === 'admin'
+                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
+                    : adminUser.role === 'inspector'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : adminUser.role === 'moderator'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                    : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                }`}>
+                  {adminUser.role.replace('_', ' ')}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{currentDateFormatted}</p>
           </div>
 
@@ -507,9 +611,9 @@ export default function AdminDashboardPage() {
                 aria-label="Admin Action Queue Notifications"
               >
                 <Bell className="h-4 w-4" />
-                {(pendingVerifications + (analytics?.kpis?.pendingReports ?? 0)) > 0 && (
+                {totalQueueAlerts > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
-                    {pendingVerifications + (analytics?.kpis?.pendingReports ?? 0)}
+                    {totalQueueAlerts}
                   </span>
                 )}
               </button>
@@ -518,54 +622,96 @@ export default function AdminDashboardPage() {
                 <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-2xl shadow-xl z-50 p-3 space-y-2 animate-fade-in">
                   <div className="flex items-center justify-between px-2 py-1 border-b border-slate-100 dark:border-[#393a3b]">
                     <span className="text-xs font-bold text-slate-900 dark:text-white">Live Admin Action Queue</span>
-                    <button 
-                      type="button"
-                      onClick={() => setIsNotifOpen(false)} 
-                      className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                    >
-                      Close
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAudioMuted(!isAudioMuted)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                        title={isAudioMuted ? "Unmute sound chime" : "Mute sound chime"}
+                      >
+                        {isAudioMuted ? <VolumeX className="h-3.5 w-3.5 text-rose-500" /> : <Volume2 className="h-3.5 w-3.5" />}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setIsNotifOpen(false)} 
+                        className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVerificationFilterPreset('pending');
-                      setActiveTab('verification');
-                      setIsNotifOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
-                      <div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Pending RSBSA Verifications</div>
-                        <div className="text-[11px] text-slate-400">Farmers awaiting PhilGAP / RSBSA review</div>
+                  {allowedTabs.includes('verification') && (
+                    <button
+                      type="button"
+                      onClick={handleOpenVerificationQueue}
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Pending RSBSA Verifications</div>
+                          <div className="text-[11px] text-slate-400">Farmers awaiting PhilGAP / RSBSA review</div>
+                        </div>
                       </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 text-xs font-bold">
-                      {pendingVerifications}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModerationFilterPreset('pending');
-                      setActiveTab('reports');
-                      setIsNotifOpen(false);
-                    }}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
-                      <div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Pending Moderation Reports</div>
-                        <div className="text-[11px] text-slate-400">Chat & content tickets needing action</div>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 text-xs font-bold">
+                        {pendingVerifications}
+                      </span>
+                    </button>
+                  )}
+
+                  {allowedTabs.includes('reports') && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleOpenModerationQueue}
+                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
+                          <div>
+                            <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Pending Moderation Reports</div>
+                            <div className="text-[11px] text-slate-400">Chat & content tickets needing action</div>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-xs font-bold">
+                          {pendingReports}
+                        </span>
+                      </button>
+                      {recentPendingReports.length > 0 && (
+                        <div 
+                          onClick={handleOpenModerationQueue}
+                          className="mx-1 px-2.5 py-1.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 text-[10px] text-rose-700 dark:text-rose-300 flex items-center justify-between cursor-pointer hover:bg-rose-100/70 dark:hover:bg-rose-900/40 transition-colors"
+                          title="Inspect latest priority moderation case"
+                        >
+                          <span className="truncate">Urgent: {recentPendingReports[0].report_code || 'Case'} · {recentPendingReports[0].reason || 'Review'}</span>
+                          <span className="font-bold shrink-0 ml-1">Inspect →</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {allowedTabs.includes('prices') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('prices');
+                        setIsNotifOpen(false);
+                        mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <TrendingUp className="h-4 w-4 text-emerald-500 shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Marketplace Bantay Presyo</div>
+                          <div className="text-[11px] text-slate-400">DA SRP price index & commodity volatility monitoring</div>
+                        </div>
                       </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-xs font-bold">
-                      {analytics?.kpis?.pendingReports ?? 0}
-                    </span>
-                  </button>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                        Live
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -586,40 +732,51 @@ export default function AdminDashboardPage() {
 
           {/* DASHBOARD TAB (Exact replica of reference image, fully dynamic from MySQL) */}
           {activeTab === 'dashboard' && (
-            <AdminDashboardOverview analytics={analytics} />
+            <AdminDashboardOverview 
+              analytics={analytics} 
+              adminRole={adminUser?.role || 'super_admin'}
+              adminUser={adminUser}
+              onNavigateTab={(tab: string) => {
+                setActiveTab(tab);
+                mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
           )}
 
           {/* PRICE WATCH / BANTAY PRESYO TAB (Option A) */}
-          {activeTab === 'prices' && (
+          {activeTab === 'prices' && allowedTabs.includes('prices') && (
             <AdminPriceWatch />
           )}
 
           {/* FIELD STORIES TAB (Option B) */}
-          {activeTab === 'stories' && (
+          {activeTab === 'stories' && allowedTabs.includes('stories') && (
             <AdminStories />
           )}
 
           {/* FARMER VERIFICATION & ACCREDITATION TAB (Option D with Printable Certificate) */}
-          {activeTab === 'verification' && (
+          {activeTab === 'verification' && allowedTabs.includes('verification') && (
             <AdminVerification 
+              key={`verification-${verificationFilterPreset}-${verificationFilterKey}`}
               initialStatusFilter={verificationFilterPreset} 
               onStatusChange={() => refreshActionQueue(true)}
             />
           )}
 
           {/* MARKETPLACE FEED MANAGER TAB */}
-          {activeTab === 'marketplace' && (
+          {activeTab === 'marketplace' && allowedTabs.includes('marketplace') && (
             <AdminMarketplace />
           )}
 
           {/* DISASTER & WEATHER CALAMITY ALERT DISPATCHER (Option C) */}
-          {activeTab === 'emergency' && (
+          {activeTab === 'emergency' && allowedTabs.includes('emergency') && (
             <AdminEmergencyDispatcher />
           )}
 
           {/* USERS DIRECTORY TAB (UNIFORM MINIMALISM - CLEAN, COMFORTABLE & ALIVE) */}
+          {/* STRICT ACCESS: ONLY SUPER ADMINISTRATOR CAN ACCESS THE USER DIRECTORY */}
           {activeTab === 'users' && (
-            <div className="space-y-6">
+            isSuperAdmin ? (
+              <div className="space-y-6">
 
               {/* =========== 1. TOP KPI METRIC CARDS =========== */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -734,6 +891,27 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     
                     {/* Status Dropdown */}
+                    <div className="relative inline-flex items-center">
+                      <select
+                        value={userRoleFilter}
+                        onChange={(e) => {
+                          setUserRoleFilter(e.target.value as any);
+                          setCurrentPage(1);
+                        }}
+                        aria-label="Filter by account role"
+                        className="appearance-none bg-white dark:bg-[#18191a] border border-slate-200/90 dark:border-[#3a3b3c] hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
+                      >
+                        <option value="all" className="dark:bg-[#242526]">All Roles ({userStats.total})</option>
+                        <option value="community" className="dark:bg-[#242526]">Farmers & Community ({userStats.community})</option>
+                        <option value="staff" className="dark:bg-[#242526]">Staff & Admin Roles ({userStats.staff})</option>
+                        <option value="super_admin" className="dark:bg-[#242526]">Super Admins ({userStats.superAdminCount})</option>
+                        <option value="inspector" className="dark:bg-[#242526]">Inspectors ({userStats.inspectorCount})</option>
+                        <option value="moderator" className="dark:bg-[#242526]">Moderators ({userStats.moderatorCount})</option>
+                        <option value="dispatcher" className="dark:bg-[#242526]">Dispatchers ({userStats.dispatcherCount})</option>
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+                    </div>
+
                     <div className="relative inline-flex items-center">
                       <select
                         value={userStatusFilter}
@@ -861,6 +1039,9 @@ export default function AdminDashboardPage() {
                             )}
                           </div>
                         </th>
+                        <th className="py-3 px-5 font-semibold">
+                          <span>Role</span>
+                        </th>
                         <th 
                           onClick={() => handleSort('status')} 
                           className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
@@ -893,7 +1074,7 @@ export default function AdminDashboardPage() {
                     <tbody className="divide-y divide-slate-100 dark:divide-[#2e2f30]">
                       {paginatedUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="py-16 text-center text-xs text-slate-400 dark:text-slate-500">
+                          <td colSpan={8} className="py-16 text-center text-xs text-slate-400 dark:text-slate-500">
                             <div className="flex flex-col items-center gap-2">
                               <Users className="h-7 w-7 text-slate-300 dark:text-slate-600" />
                               <span>No user accounts found matching your search or filter.</span>
@@ -1072,20 +1253,42 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               </div>
-
             </div>
+          ) : (
+              <div className="bg-white dark:bg-[#242526] rounded-2xl p-10 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs text-center space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200 dark:border-rose-900/60">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">User Directory Access Restricted</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
+                    Only Super Administrators have permission to view and manage user accounts and community member records.
+                  </p>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('dashboard')}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#237227] hover:bg-[#1b5e20] text-white text-xs font-bold rounded-xl transition-all shadow-2xs cursor-pointer"
+                  >
+                    Return to Dashboard
+                  </button>
+                </div>
+              </div>
+            )
           )}
 
           {/* REPORT & MODERATION TAB */}
-          {activeTab === 'reports' && (
+          {activeTab === 'reports' && allowedTabs.includes('reports') && (
             <AdminModeration 
+              key={`reports-${moderationFilterPreset}-${moderationFilterKey}`}
               initialFilter={moderationFilterPreset} 
               onReportAction={() => refreshActionQueue(true)}
             />
           )}
 
           {/* ANNOUNCEMENT TAB */}
-          {activeTab === 'announcements' && (
+          {activeTab === 'announcements' && allowedTabs.includes('announcements') && (
             <AdminAnnouncements 
               adminEmail={adminUser?.email} 
               totalFarmersCount={filteredUsers.length || 4820} 
@@ -1093,7 +1296,7 @@ export default function AdminDashboardPage() {
           )}
 
           {/* SETTINGS TAB (Exact match to reference image with Night Mode & Light Mode) */}
-          {activeTab === 'settings' && (
+          {activeTab === 'settings' && isSuperAdmin && (
             <AdminSettings 
               adminEmail={adminUser?.email} 
               onAdminAccountUpdated={(updated) => {
@@ -1233,6 +1436,49 @@ export default function AdminDashboardPage() {
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Account Role & Privileges</label>
+                <select
+                  value={newUserForm.role}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-slate-50 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none font-semibold cursor-pointer"
+                >
+                  <option value="user">Regular User / Community Farmer (Mobile App)</option>
+                  <option value="inspector">Agriculture Inspector (Accreditation & Bantay Presyo)</option>
+                  <option value="moderator">Community Moderator (Safety & Marketplace)</option>
+                  <option value="dispatcher">Disaster & Calamity Dispatcher</option>
+                  <option value="super_admin">Super Administrator (Full System Authority)</option>
+                </select>
+
+                <div className="mt-2 p-2.5 rounded-xl bg-slate-100/70 dark:bg-[#18191a] border border-slate-200/80 dark:border-[#3a3b3c] text-[11px] text-slate-600 dark:text-slate-300">
+                  {newUserForm.role === 'super_admin' && (
+                    <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                      👑 <strong>Super Admin:</strong> Full authority over all features, including User Directory, System Settings, Accreditation, and Emergency Dispatcher.
+                    </span>
+                  )}
+                  {newUserForm.role === 'inspector' && (
+                    <span className="text-amber-700 dark:text-amber-400 font-medium">
+                      🌾 <strong>Agriculture Inspector:</strong> Access to Accreditation (RSBSA) & Bantay Presyo (SRP) & Announcements. <em className="text-rose-600 dark:text-rose-400">(User Directory is restricted to Super Admin)</em>.
+                    </span>
+                  )}
+                  {newUserForm.role === 'moderator' && (
+                    <span className="text-blue-700 dark:text-blue-400 font-medium">
+                      🛡️ <strong>Community Moderator:</strong> Access to Content Moderation & Marketplace & Field Stories & Announcements. <em className="text-rose-600 dark:text-rose-400">(User Directory is restricted to Super Admin)</em>.
+                    </span>
+                  )}
+                  {newUserForm.role === 'dispatcher' && (
+                    <span className="text-rose-700 dark:text-rose-400 font-medium">
+                      🚨 <strong>Calamity Dispatcher:</strong> Access to Emergency Disaster Alerts & Announcements. <em className="text-rose-600 dark:text-rose-400">(User Directory is restricted to Super Admin)</em>.
+                    </span>
+                  )}
+                  {newUserForm.role === 'user' && (
+                    <span className="text-slate-500 font-medium">
+                      📱 <strong>Community Farmer / Buyer:</strong> Standard mobile app user only (No portal sidebar access).
+                    </span>
+                  )}
                 </div>
               </div>
 

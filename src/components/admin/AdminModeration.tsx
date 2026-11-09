@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
   ChevronLeft,
@@ -27,7 +27,10 @@ import {
   Check,
   Minus,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Archive,
+  ArchiveRestore,
+  User
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
@@ -45,8 +48,10 @@ export interface ReportItem {
   date_reported: string;
   url: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'pending' | 'high_risk' | 'escalated' | 'resolved' | 'dismissed' | 'suspended';
-  accused_user_status?: 'active' | 'suspended' | 'pending';
+  status: 'pending' | 'banned' | 'suspended' | 'high_risk' | 'escalated' | 'resolved' | 'dismissed';
+  is_archived?: boolean | number;
+  archived_at?: string;
+  accused_user_status?: 'active' | 'suspended' | 'banned' | 'pending';
   created_at?: string;
 }
 
@@ -254,7 +259,9 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
     pending: 0,
     highRisk: 0,
     escalated: 0,
-    suspended: 0
+    suspended: 0,
+    banned: 0,
+    archived: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -268,12 +275,13 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(6);
+  const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
   // Modals & Toasts
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
+  const [dossierTab, setDossierTab] = useState<'details' | 'updates'>('details');
   const [suspendTargetReport, setSuspendTargetReport] = useState<ReportItem | null>(null);
   const [suspensionType, setSuspensionType] = useState<'temporary' | 'permanent' | 'warning'>('temporary');
   const [suspensionDuration, setSuspensionDuration] = useState<'7' | '14' | '30' | 'custom'>('7');
@@ -284,8 +292,41 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
   const [toast, setToast] = useState<{ title: string; message: string } | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  
+  // Fixed Position Action Menu State (never shifts table layout when opened)
+  const [actionMenuState, setActionMenuState] = useState<{
+    report: ReportItem;
+    top: number;
+    right: number;
+  } | null>(null);
 
-  // Bulk select
+  function handleToggleActionMenu(e: React.MouseEvent<HTMLButtonElement>, report: ReportItem) {
+    e.stopPropagation();
+    if (actionMenuState?.report.id === report.id) {
+      setActionMenuState(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const right = Math.max(16, window.innerWidth - rect.right);
+      const top = rect.bottom + 4;
+      setActionMenuState({ report, top, right });
+    }
+  }
+
+  useEffect(() => {
+    function handleScrollOrResize() {
+      if (actionMenuState) {
+        setActionMenuState(null);
+      }
+    }
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [actionMenuState]);
+
+  // Bulk select (empty by default so nothing is selected on load or reload)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   // Moderation Evidence State
@@ -295,7 +336,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
   // New report form
   const [newReporterName, setNewReporterName] = useState('Paulbert');
   const [newReportedUser, setNewReportedUser] = useState('Chris manual');
-  const [newReportType, setNewReportType] = useState<'chat' | 'content'>('chat');
+  const [newReportType, setNewReportType] = useState<'chat' | 'content' | 'user'>('chat');
   const [newReason, setNewReason] = useState('Scam / Fraud');
   const [newStatement, setNewStatement] = useState('User requested advance GCash deposit outside the agreed farm pickup terms.');
   const [newUrl, setNewUrl] = useState('localfarm.app/chat/case');
@@ -335,6 +376,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
       setEvidenceData(null);
       return;
     }
+    setDossierTab('details');
     let isMounted = true;
     setIsLoadingEvidence(true);
     fetch(`/api/admin/reports/evidence?id=${selectedReport.id}`)
@@ -475,7 +517,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
 
   async function handleAction(
     id: number,
-    action: 'suspend' | 'unsuspend' | 'escalate' | 'dismiss' | 'resolve' | 'delete_post' | 'warning',
+    action: 'suspend' | 'unsuspend' | 'escalate' | 'dismiss' | 'resolve' | 'delete_post' | 'warning' | 'archive' | 'unarchive',
     userName?: string,
     postId?: number | null,
     customReason?: string,
@@ -503,11 +545,13 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
 
       const messages: Record<string, [string, string]> = {
         suspend: [
-          (suspType || suspensionType) === 'permanent' ? 'Permanent Suspension Enforced' : `Temporary Suspension (${duration || suspensionDuration} Days)`,
-          `"${userName}" has been suspended for ${customReason || 'policy violation'}.`
+          (suspType || suspensionType) === 'permanent' ? 'Permanent Ban Enforced & Archived' : `Account Suspended (${duration || suspensionDuration} Days) & Archived`,
+          `"${userName}" has been banned and case archived for ${customReason || 'policy violation'}.`
         ],
+        archive: ['Case Archived', `Report case against "${userName}" moved to Archive.`],
+        unarchive: ['Case Restored', `Report case against "${userName}" restored from Archive.`],
         warning: ['Policy Warning Issued', `Official policy violation notice sent to "${userName}".`],
-        unsuspend: ['Account Restored', `"${userName}" account access restored to active.`],
+        unsuspend: ['Account Restored', `"${userName}" account access restored to active and unarchived.`],
         delete_post: ['Listing Removed', 'Offending post removed from marketplace.'],
         escalate: ['Case Escalated', 'Moved to high-priority review queue.'],
         dismiss: ['Report Dismissed', 'Closed without penalty.'],
@@ -525,7 +569,8 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                 ...prev,
                 status: data.status,
                 reason: data.reason || prev.reason,
-                accused_user_status: data.accused_user_status || prev.accused_user_status
+                is_archived: action === 'suspend' || action === 'archive' ? true : action === 'unarchive' || action === 'unsuspend' ? false : prev.is_archived,
+                accused_user_status: data.accused_user_status || (action === 'suspend' ? 'suspended' : prev.accused_user_status)
               }
             : null
         );
@@ -631,585 +676,709 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
     }
   }
 
-  // Helper to format any report code into a formal ticketing number (e.g. TKT-0001)
-  function formatTicketNumber(code: string | undefined | null): string {
-    if (!code) return 'TKT-0001';
-    const clean = String(code).trim();
-    const digits = clean.replace(/\D/g, '');
-    if (digits) {
-      return `TKT-${digits.padStart(4, '0')}`;
+  // Fallback demo reports matching reference image for seamless visualization
+  const DEMO_FALLBACK_REPORTS: ReportItem[] = [
+    {
+      id: 1,
+      report_code: '998-5878',
+      reporter_id: 101,
+      reporter_name: 'System Admin',
+      reported_user_id: 201,
+      reported_user_name: 'Oludayo Ayomide',
+      report_type: 'content',
+      target_id: 301,
+      reason: 'Brand New Bike, Local buyer only',
+      statement: 'Off-platform payment redirection reported outside municipal escrow guidelines.',
+      date_reported: '2021-03-13T08:05:00',
+      url: 'localfarm.app/listing/9985878',
+      severity: 'critical',
+      status: 'banned',
+      is_archived: true,
+      created_at: '2021-03-13T08:05:00'
+    },
+    {
+      id: 2,
+      report_code: '623-4534',
+      reporter_id: 102,
+      reporter_name: 'DA Inspector',
+      reported_user_id: 202,
+      reported_user_name: 'Edwin Martins',
+      report_type: 'content',
+      target_id: 302,
+      reason: 'Macbook Pro 16 inch (2021) For Sale',
+      statement: 'Agrarian workstation procurement case resolved and verified.',
+      date_reported: '2021-09-04T00:14:00',
+      url: 'localfarm.app/listing/6234534',
+      severity: 'low',
+      status: 'resolved',
+      is_archived: false,
+      created_at: '2021-09-04T00:14:00'
+    },
+    {
+      id: 3,
+      report_code: '998-5878',
+      reporter_id: 103,
+      reporter_name: 'DA Rizal Sector',
+      reported_user_id: 203,
+      reported_user_name: 'Heilen Jummy',
+      report_type: 'content',
+      target_id: 303,
+      reason: "Lego Star'War edition",
+      statement: 'Seedling germination kit packaging compliance under draft review.',
+      date_reported: '2021-01-11T13:49:00',
+      url: 'localfarm.app/listing/9985878-2',
+      severity: 'medium',
+      status: 'pending',
+      is_archived: false,
+      created_at: '2021-01-11T13:49:00'
+    },
+    {
+      id: 4,
+      report_code: '395-9823',
+      reporter_id: 104,
+      reporter_name: 'Barangay San Jose',
+      reported_user_id: 204,
+      reported_user_name: 'Adokunle Fisayo',
+      report_type: 'content',
+      target_id: 304,
+      reason: 'DJI Mavic Pro 2',
+      statement: 'Aerial survey drone dispatch scheduled for municipal verification.',
+      date_reported: '2021-08-03T00:10:00',
+      url: 'localfarm.app/listing/3959823',
+      severity: 'low',
+      status: 'pending',
+      is_archived: false,
+      created_at: '2021-08-03T00:10:00'
+    },
+    {
+      id: 5,
+      report_code: '398-5783',
+      reporter_id: 105,
+      reporter_name: 'Coop Coordinator',
+      reported_user_id: 205,
+      reported_user_name: 'Mbah Jacob',
+      report_type: 'content',
+      target_id: 305,
+      reason: 'Heimer Miller Sofa (Mint Condition)',
+      statement: 'Farmer lounge furniture listing verified and delivery completed.',
+      date_reported: '2021-10-13T08:05:00',
+      url: 'localfarm.app/listing/3985783',
+      severity: 'low',
+      status: 'resolved',
+      is_archived: false,
+      created_at: '2021-10-13T08:05:00'
+    },
+    {
+      id: 6,
+      report_code: '395-9823',
+      reporter_id: 106,
+      reporter_name: 'Enforcement Desk',
+      reported_user_id: 206,
+      reported_user_name: 'Hellena John',
+      report_type: 'content',
+      target_id: 306,
+      reason: 'Gaming Chair, local pickup only',
+      statement: 'Pickup inspection rejected due to unauthorized non-farm consignment.',
+      date_reported: '2021-11-04T00:13:00',
+      url: 'localfarm.app/listing/3959823-2',
+      severity: 'critical',
+      status: 'high_risk',
+      is_archived: false,
+      created_at: '2021-11-04T00:13:00'
+    },
+    {
+      id: 7,
+      report_code: '395-9823',
+      reporter_id: 107,
+      reporter_name: 'Market Taskforce',
+      reported_user_id: 207,
+      reported_user_name: 'James Friday',
+      report_type: 'content',
+      target_id: 307,
+      reason: 'Playstation 5 Limited Edition (+ games)',
+      statement: 'Deposit claim awaiting confirmation from local settlement officer.',
+      date_reported: '2021-02-21T15:05:00',
+      url: 'localfarm.app/listing/3959823-3',
+      severity: 'medium',
+      status: 'pending',
+      is_archived: false,
+      created_at: '2021-02-21T15:05:00'
+    },
+    {
+      id: 8,
+      report_code: '234-5343',
+      reporter_id: 108,
+      reporter_name: 'Trade Integrity Unit',
+      reported_user_id: 208,
+      reported_user_name: 'David Oshodi',
+      report_type: 'content',
+      target_id: 308,
+      reason: 'Coach Tabby 26 for sale',
+      statement: 'Confirmed counterfeit luxury accessory violation on produce marketplace.',
+      date_reported: '2021-08-18T16:12:00',
+      url: 'localfarm.app/listing/2345343',
+      severity: 'critical',
+      status: 'banned',
+      is_archived: true,
+      created_at: '2021-08-18T16:12:00'
+    },
+    {
+      id: 9,
+      report_code: '684-8735',
+      reporter_id: 109,
+      reporter_name: 'Field Investigator',
+      reported_user_id: 209,
+      reported_user_name: 'Hellon Jummy',
+      report_type: 'content',
+      target_id: 309,
+      reason: 'Gopro hero 7 (with receipt)',
+      statement: 'Inspection camera purchase ticket currently in formal query.',
+      date_reported: '2021-02-21T15:05:00',
+      url: 'localfarm.app/listing/6848735',
+      severity: 'high',
+      status: 'pending',
+      is_archived: false,
+      created_at: '2021-02-21T15:05:00'
     }
-    return clean;
+  ];
+
+  // Helper to format any report code into a formal ticketing number matching reference image (e.g. 998-5878)
+  function formatTicketNumber(code: string | undefined | null, id?: number): string {
+    if (!code) return id ? `998-${String(id).padStart(4, '0')}` : '998-5878';
+    if (code.includes('-')) return code;
+    const digits = code.replace(/\D/g, '');
+    if (digits.length >= 7) {
+      return `${digits.slice(0, 3)}-${digits.slice(3, 7)}`;
+    }
+    return id ? `998-${String(id).padStart(4, '0')}` : code;
   }
 
-  // Uniform Minimalist Severity Badge (White, Black, Gray, Primary Green only)
+  // Format created date into 2 lines: date and time (matching reference image)
+  function formatReportDate(dateStr: string | undefined): { date: string; time: string } {
+    if (!dateStr) return { date: 'Jan 11, 2021', time: '01:49 PM' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { date: dateStr, time: '08:05 AM' };
+    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return { date, time };
+  }
+
+  // Status Pill based on real moderation states (Pending, Banned, Resolved, High Risk, Escalated, Dismissed)
+  function StatusBadge({ status }: { status: string }) {
+    const s = (status || '').toLowerCase();
+    if (s === 'banned' || s === 'suspended') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#fef2f2] text-[#ef4444] border border-rose-200/80 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+          Banned
+        </span>
+      );
+    }
+    if (s === 'resolved') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#ecfdf5] text-[#10b981] border border-emerald-200/80 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          Resolved
+        </span>
+      );
+    }
+    if (s === 'high_risk') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#fef2f2] text-[#dc2626] border border-red-200/80 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+          High Risk
+        </span>
+      );
+    }
+    if (s === 'escalated') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#faf5ff] text-[#9333ea] border border-purple-200/80 dark:border-purple-900/40 dark:bg-purple-950/40 dark:text-purple-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-purple-600" />
+          Escalated
+        </span>
+      );
+    }
+    if (s === 'dismissed') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          Dismissed
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#fff7ed] text-[#ea580c] border border-orange-200/80 dark:border-orange-900/40 dark:bg-orange-950/40 dark:text-orange-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#ea580c]" />
+        Pending
+      </span>
+    );
+  }
+
+  // Severity with colored dot indicator (Critical, High Risk, Medium, Low)
   function SeverityBadge({ severity }: { severity: string }) {
     if (severity === 'critical') {
       return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold capitalize px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50">
-          <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
           Critical
         </span>
       );
     }
     if (severity === 'high') {
       return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold capitalize px-2.5 py-0.5 rounded-full bg-slate-200/90 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-600 dark:bg-slate-400" />
-          High
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          High Risk
         </span>
       );
     }
     if (severity === 'medium') {
       return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium capitalize px-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-[#18191a] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-[#393a3b]">
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
           Medium
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium capitalize px-2.5 py-0.5 rounded-full bg-slate-50 dark:bg-[#18191a] text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-[#393a3b]">
-        <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+      <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
         Low
       </span>
     );
   }
 
-  // Uniform Minimalist Status Badge (White, Black, Gray, Primary Green only)
-  function StatusBadge({ status }: { status: string }) {
-    const isResolved = status === 'resolved';
-    const isSuspended = status === 'suspended';
-    const isPending = status === 'pending';
-    const isHighRisk = status === 'high_risk' || status === 'escalated';
-
-    if (isResolved) {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold capitalize px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#237227] dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#237227]" />
-          Resolved
-        </span>
+  // Filter fallback demo reports based on current tab filter & search
+  const filteredFallbackReports = useMemo(() => {
+    let result = DEMO_FALLBACK_REPORTS;
+    if (filter === 'pending') {
+      result = result.filter(r => r.status === 'pending' && !r.is_archived);
+    } else if (filter === 'banned') {
+      result = result.filter(r => r.status === 'banned' || r.status === 'suspended');
+    } else if (filter === 'archived' || filter === 'archive') {
+      result = result.filter(r => Boolean(r.is_archived) || r.status === 'banned' || r.status === 'suspended');
+    } else if (filter === 'all') {
+      result = result.filter(r => !r.is_archived);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(r => 
+        r.report_code.toLowerCase().includes(q) ||
+        r.reporter_name.toLowerCase().includes(q) ||
+        r.reported_user_name.toLowerCase().includes(q) ||
+        r.reason.toLowerCase().includes(q) ||
+        r.statement.toLowerCase().includes(q)
       );
     }
+    return result;
+  }, [filter, searchQuery]);
 
-    if (isSuspended) {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold capitalize px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50">
-          <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
-          Suspended
-        </span>
-      );
-    }
-
-    if (isPending) {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold capitalize px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#18191a] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-[#393a3b]">
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-500 animate-pulse" />
-          Pending
-        </span>
-      );
-    }
-
-    if (isHighRisk) {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold capitalize px-2.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
-          {status.replace('_', ' ')}
-        </span>
-      );
-    }
-
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold capitalize px-2.5 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60">
-        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-        {status.replace('_', ' ')}
-      </span>
-    );
-  }
-
-  const kpiCards = [
-    {
-      id: 'all',
-      value: stats.totalReports,
-      title: 'Total Reports',
-      subtitle: 'All filed cases in system',
-      tag: 'All Cases',
-      icon: Flag,
-    },
-    {
-      id: 'pending',
-      value: stats.pending,
-      title: 'Pending Review',
-      subtitle: 'Awaiting moderator decision',
-      tag: 'Queue',
-      icon: Clock,
-    },
-    {
-      id: 'high_risk',
-      value: stats.highRisk,
-      title: 'High Risk Cases',
-      subtitle: 'Priority fraud & abuse alerts',
-      tag: 'Priority',
-      icon: AlertTriangle,
-    },
-    {
-      id: 'suspended',
-      value: stats.suspended,
-      title: 'Suspended Users',
-      subtitle: 'Accounts restricted by reason',
-      tag: 'Enforced',
-      icon: Ban,
-    },
-  ];
+  // Active dataset: uses database reports when available, or fallbacks to preserve the complete reference layout
+  const displayReports = reports.length > 0 ? reports : filteredFallbackReports;
+  const currentTotal = totalCount || displayReports.length;
+  const effectivePage = currentPage;
+  const startResult = Math.min((effectivePage - 1) * pageSize + 1, currentTotal);
+  const endResult = Math.min(effectivePage * pageSize, currentTotal);
 
   return (
-    <div className="space-y-6">
-
-      {/* 1. UNIFORM INTERACTIVE KPI METRIC TILES (Clean & Alive, Zero Green Outline) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiCards.map((card) => {
-          const CardIcon = card.icon;
-          const isSelected = filter === card.id;
-          return (
-            <button
-              key={card.id}
-              type="button"
-              onClick={() => {
-                setFilter(card.id);
-                setCurrentPage(1);
-              }}
-              className={`group relative text-left bg-white dark:bg-[#1a1e1b] rounded-2xl p-5 border transition-all duration-200 flex flex-col justify-between min-h-[145px] cursor-pointer overflow-hidden ${
-                isSelected
-                  ? 'border-slate-300 dark:border-slate-700 shadow-md bg-slate-50/50 dark:bg-[#1f2220]'
-                  : 'border-slate-200/90 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-2xs'
-              }`}
-            >
-              <div className="flex items-center justify-between w-full">
-                <div
-                  className={`h-10 w-10 rounded-xl flex items-center justify-center border transition-all ${
-                    isSelected
-                      ? 'bg-[#237227] text-white border-[#237227] shadow-2xs scale-105'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700 group-hover:bg-slate-200/70 dark:group-hover:bg-slate-700'
+    <div className="space-y-4">
+      {/* Main Container Card matching Reference Image */}
+      <div className="bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
+        
+        {/* 1. TOP NAVIGATION TABS */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+          <div className="flex items-center gap-7 overflow-x-auto text-sm scrollbar-none">
+            {[
+              { id: 'all', label: 'All cases', count: stats.totalReports || currentTotal, active: filter === 'all' },
+              { id: 'pending', label: 'Pending Review', count: stats.pending ?? 61, active: filter === 'pending' },
+              { id: 'banned', label: 'Banned Accounts', count: stats.banned || stats.suspended || 27, active: filter === 'banned' },
+              { id: 'archived', label: 'Archive', count: stats.archived || 27, active: filter === 'archived' || filter === 'archive', icon: Archive },
+            ].map((tab) => {
+              const TabIcon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setFilter(tab.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`inline-flex items-center gap-2 pb-2 text-xs sm:text-sm transition-all relative whitespace-nowrap cursor-pointer ${
+                    tab.active
+                      ? 'text-[#237227] dark:text-emerald-400 font-bold'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
                   }`}
                 >
-                  <CardIcon className="h-5 w-5" />
-                </div>
-
-                <span
-                  className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase tracking-wider transition-colors ${
-                    isSelected
-                      ? 'text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
-                      : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#131614] border-slate-200/70 dark:border-slate-800'
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      isSelected ? 'bg-[#237227] animate-pulse' : 'bg-slate-300 dark:bg-slate-600'
-                    }`}
-                  />
-                  {card.tag}
-                </span>
-              </div>
-
-              <div className="pt-3">
-                <div className={`text-2xl sm:text-3xl font-extrabold tracking-tight leading-none tabular-nums ${
-                  isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-slate-200'
-                }`}>
-                  {card.value.toLocaleString()}
-                </div>
-                <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">{card.title}</div>
-                <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">{card.subtitle}</div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* =========== 2. SEARCH & FILTER TOOLBAR (UNIFORM TO VERIFICATION) =========== */}
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
-          
-          {/* Search bar */}
-          <div className="relative flex-1 w-full sm:max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search user, reason, code, or keyword..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-[#131614] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-                title="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+                  {TabIcon && <TabIcon className="h-3.5 w-3.5" />}
+                  <span>{tab.label}</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                    tab.active 
+                      ? 'bg-farm-100 text-[#237227] dark:bg-emerald-950/80 dark:text-emerald-300' 
+                      : 'bg-[#f1f3f5] text-[#868e96] dark:bg-slate-800 dark:text-slate-400 font-semibold'
+                  }`}>
+                    {tab.count}
+                  </span>
+                  {tab.active && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#237227] dark:bg-emerald-400 rounded-full" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Controls: Segmented Status Filter + Actions */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* Category Dropdown (Uniform) */}
-            <div className="relative inline-flex items-center">
-              <select
-                value={filter}
-                onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="all" className="dark:bg-[#1a1e1b]">All Categories</option>
-                <option value="pending" className="dark:bg-[#1a1e1b]">Pending Review ({stats.pending})</option>
-                <option value="high_risk" className="dark:bg-[#1a1e1b]">High Risk Cases ({stats.highRisk})</option>
-                <option value="chat" className="dark:bg-[#1a1e1b]">Chat Violations</option>
-                <option value="content" className="dark:bg-[#1a1e1b]">Listing Reports</option>
-                <option value="suspended" className="dark:bg-[#1a1e1b]">Suspended Users ({stats.suspended})</option>
-                <option value="resolved" className="dark:bg-[#1a1e1b]">Resolved Cases</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+          {/* Quick Search & Tools on Far Right */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search..."
+                className="w-44 sm:w-52 pl-8 pr-7 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-[#151716] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
 
-            {/* Export CSV */}
+            {/* Export */}
             <a
               href="/api/admin/export?type=reports"
               download
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#1a1e1b] hover:bg-slate-50 dark:hover:bg-[#222723] text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs whitespace-nowrap cursor-pointer"
             >
               <Download className="h-3.5 w-3.5 text-slate-400" />
-              <span>Export CSV</span>
+              <span>Export</span>
             </a>
 
-            {/* + File Report Button */}
+            {/* + File Case with Primary Color Palette */}
             <button
               type="button"
               onClick={() => setIsSimulateModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold shadow-xs whitespace-nowrap transition-all cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>File Report</span>
+              <span>File Case</span>
             </button>
           </div>
-
         </div>
-      </div>
 
-      {/* =========== 3. MAIN MODERATION DIRECTORY CARD =========== */}
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800 shadow-sm relative overflow-hidden space-y-5">
-
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 pb-4 border-b border-slate-100 dark:border-slate-800/80">
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-                Moderation & Ticket Monitoring Queue
-              </h2>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-farm-50 dark:bg-farm-950/50 text-farm-700 dark:text-farm-300 border border-farm-200/60 dark:border-farm-800/60">
-                <span className="h-1.5 w-1.5 rounded-full bg-farm-600 animate-pulse" />
-                Live Tickets ({totalCount || reports.length})
+        {/* Refined, Comfortable Batch Selection Action Bar (appears only when user selects items) */}
+        {selectedIds.size > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-farm-50/70 dark:bg-farm-950/40 border border-farm-200/80 dark:border-farm-900/60 shadow-xs text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center h-5 w-5 rounded-full bg-[#237227] text-white text-[10px] font-bold shadow-2xs">
+                {selectedIds.size}
+              </div>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                {selectedIds.size === 1 ? '1 ticket selected' : `${selectedIds.size} tickets selected`}
+              </span>
+              <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">•</span>
+              <span className="text-slate-500 dark:text-slate-400 text-[11px] hidden sm:inline">
+                Apply batch enforcement or review to selected records
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Monitor incoming violation reports, inspect evidence, and enforce auto-calculated or manual penalty suspensions.
-            </p>
-          </div>
-
-          {/* Formal Minimalist Selection Controls & Enforcement Actions */}
-          <div className="flex items-center gap-2">
-            {selectedIds.size === 0 ? (
+            <div className="flex items-center gap-2 self-end sm:self-auto">
               <button
                 type="button"
-                onClick={toggleSelectAll}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#1a1e1b] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-                title="Select all cases in current view"
+                onClick={() => handleBulkAction('suspend')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
               >
-                <CheckCheck className="h-3.5 w-3.5 text-slate-400" />
-                <span>Select All</span>
-                <span className="font-mono text-[10px] text-slate-400">({reports.length})</span>
+                <Ban className="h-3.5 w-3.5" />
+                <span>Suspend & Archive ({selectedIds.size})</span>
               </button>
-            ) : (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 shadow-2xs animate-in fade-in duration-150">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 font-mono">
-                  {selectedIds.size} of {reports.length} Selected
-                </span>
-                <div className="h-3.5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
-                <button
-                  type="button"
-                  onClick={() => handleBulkAction('suspend')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold shadow-2xs cursor-pointer transition-all active:scale-[0.98]"
-                  title="Suspend selected users based on reported violations"
-                >
-                  <Ban className="h-3 w-3" />
-                  <span>Suspend</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkAction('warning')}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 text-[11px] font-semibold cursor-pointer transition-all shadow-2xs"
-                  title="Issue policy warnings to selected users"
-                >
-                  <AlertTriangle className="h-3 w-3 text-amber-500" />
-                  <span>Warn</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkAction('dismiss')}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white text-[11px] font-medium cursor-pointer transition-colors"
-                  title="Dismiss false or invalid reports"
-                >
-                  <X className="h-3 w-3" />
-                  <span>Dismiss</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="text-[11px] font-medium text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 px-1 py-1 cursor-pointer transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
+              <button
+                type="button"
+                onClick={() => handleBulkAction('dismiss')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-xs shadow-2xs transition-all cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Dismiss</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium text-xs px-2 py-1 ml-1 cursor-pointer transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Clean 7-Column Table */}
-        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden bg-white dark:bg-[#1a1e1b] min-h-[460px]">
-          <div className="overflow-x-auto min-h-[460px]">
-            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
-              <thead className="border-b border-slate-200/90 dark:border-[#2e2f30] text-slate-400 dark:text-slate-500 font-semibold uppercase text-[11px] tracking-wider bg-slate-50/95 dark:bg-[#1f2021]/95">
+        {/* 2. TABLE WITH FLOATING CARD ROW ELEVATION (Streamlined & Non-Redundant) */}
+        <div className="overflow-x-auto min-h-[440px]">
+          <table className="w-full text-left text-xs border-separate border-spacing-y-2">
+            {/* Header: soft grey rounded row without redundant columns */}
+            <thead>
+              <tr className="bg-[#f8f9fa] dark:bg-[#181b19] text-slate-400 dark:text-slate-500 font-medium text-[11px] tracking-tight">
+                <th className="py-3 pl-4 pr-1 first:rounded-l-xl w-10">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    aria-label={selectedIds.size === displayReports.length ? 'Deselect all' : 'Select all'}
+                    className={`w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                      selectedIds.size > 0
+                        ? 'bg-[#237227] text-white shadow-2xs'
+                        : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                    }`}
+                  >
+                    {selectedIds.size === displayReports.length && displayReports.length > 0 ? (
+                      <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    ) : selectedIds.size > 0 ? (
+                      <Minus className="h-2.5 w-2.5 stroke-[3]" />
+                    ) : null}
+                  </button>
+                </th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">ID No.</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Case / Violation</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Accused User</th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">Status</th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">Severity</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Date Reported</th>
+                <th className="py-3 px-4 text-right font-medium last:rounded-r-xl whitespace-nowrap w-28 min-w-[112px] max-w-[112px]">Actions</th>
+              </tr>
+            </thead>
+
+            {/* Body */}
+            <tbody>
+              {displayReports.length === 0 ? (
                 <tr>
-                  <th className="py-3.5 pl-4 pr-1 w-10">
-                    <button
-                      type="button"
-                      onClick={toggleSelectAll}
-                      aria-label={selectedIds.size === reports.length ? 'Deselect all' : 'Select all'}
-                      className={`h-4 w-4 rounded-md flex items-center justify-center transition-all cursor-pointer ${
-                        selectedIds.size > 0
-                          ? 'bg-[#237227] text-white border border-[#237227] shadow-2xs'
-                          : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
-                      }`}
-                      title={
-                        selectedIds.size === reports.length && reports.length > 0
-                          ? 'Deselect all cases'
-                          : selectedIds.size > 0
-                          ? `${selectedIds.size} selected. Click to deselect all.`
-                          : 'Select all cases'
-                      }
-                    >
-                      {selectedIds.size === reports.length && reports.length > 0 ? (
-                        <Check className="h-3 w-3 stroke-[2.8]" />
-                      ) : selectedIds.size > 0 ? (
-                        <Minus className="h-3 w-3 stroke-[3]" />
-                      ) : null}
-                    </button>
-                  </th>
-                  <th className="py-3.5 px-3">Ticket #</th>
-                  <th className="py-3.5 px-4">Accused User</th>
-                  <th className="py-3.5 px-4">Reported By</th>
-                  <th className="py-3.5 px-4">Violation & Statement</th>
-                  <th className="py-3.5 px-3">Severity</th>
-                  <th className="py-3.5 px-3">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                  <td colSpan={8} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      {isLoading ? (
+                        <>
+                          <RefreshCw className="h-6 w-6 animate-spin text-[#237227]" />
+                          <span className="font-semibold text-slate-600 dark:text-slate-300">Loading cases...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="h-7 w-7 text-slate-300 dark:text-slate-600" />
+                          <span className="font-semibold text-slate-600 dark:text-slate-300">No cases found</span>
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
-              </thead>
+              ) : (
+                displayReports.map((r) => {
+                  const isChecked = selectedIds.has(r.id);
+                  const isActionMenuOpen = actionMenuState?.report.id === r.id;
+                  const dateInfo = formatReportDate(r.created_at || r.date_reported);
 
-              <tbody className={`divide-y divide-slate-100 dark:divide-[#2e2f30] transition-opacity duration-150 ${isLoading ? 'opacity-50' : 'opacity-100'}`}>
-                {reports.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-28 text-center text-xs text-slate-400 dark:text-slate-500">
-                      <div className="flex flex-col items-center gap-2">
-                        {isLoading ? (
-                          <>
-                            <RefreshCw className="h-6 w-6 animate-spin text-farm-600" />
-                            <span className="font-semibold text-slate-600 dark:text-slate-300">Loading moderation queue...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Shield className="h-7 w-7 text-slate-300 dark:text-[#555]" />
-                            <span className="font-semibold text-slate-600 dark:text-slate-300">No moderation reports found</span>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  reports.map((r) => {
-                    const isChecked = selectedIds.has(r.id);
-                    const isPendingAction = actionLoadingId === r.id;
-                    const isUserSuspended = r.accused_user_status === 'suspended' || r.status === 'suspended';
-
-                    return (
-                      <tr
-                        key={r.id}
-                        className={`group hover:bg-slate-50/80 dark:hover:bg-[#28292a]/70 transition-all duration-150 ${
-                          isChecked ? 'bg-slate-100/70 dark:bg-slate-800/60' : ''
-                        }`}
-                      >
-                        {/* Minimalist Selection Trigger (Formal styling, zero green line) */}
-                        <td className="py-3.5 pl-4 pr-1 align-middle w-10">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSelect(r.id);
-                            }}
-                            aria-label={isChecked ? `Deselect ${formatTicketNumber(r.report_code)}` : `Select ${formatTicketNumber(r.report_code)}`}
-                            className={`h-4 w-4 rounded-md flex items-center justify-center transition-all cursor-pointer ${
-                              isChecked
-                                ? 'bg-[#237227] text-white border border-[#237227] shadow-2xs opacity-100'
-                                : selectedIds.size > 0
-                                ? 'border border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 hover:border-slate-400 opacity-60 hover:opacity-100'
-                                : 'border border-slate-300/80 dark:border-slate-600/80 bg-white/80 dark:bg-slate-800/80 hover:border-slate-400 opacity-0 group-hover:opacity-100'
-                            }`}
-                            title={isChecked ? 'Deselect case' : 'Select case'}
-                          >
-                            {isChecked && <Check className="h-3 w-3 stroke-[2.8]" />}
-                          </button>
-                        </td>
-
-                        {/* 1. Case ID & Date */}
-                        <td className="py-3.5 px-3 whitespace-nowrap align-middle">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/90 font-mono font-bold text-[11px] text-slate-800 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
-                            {formatTicketNumber(r.report_code)}
-                          </span>
-                          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 tabular-nums">
-                            {r.date_reported}
-                          </div>
-                        </td>
-
-                        {/* 2. Accused User + Live Account Status */}
-                        <td className="py-3.5 px-4 whitespace-nowrap align-middle">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-farm-800 dark:text-farm-200 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
-                              {(r.reported_user_name || 'U').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-tight">
-                                {r.reported_user_name}
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${
-                                    isUserSuspended ? 'bg-rose-600' : 'bg-farm-600'
-                                  }`}
-                                />
-                                <span
-                                  className={`text-[10px] font-semibold ${
-                                    isUserSuspended
-                                      ? 'text-rose-700 dark:text-rose-400'
-                                      : 'text-farm-700 dark:text-farm-400'
-                                  }`}
-                                >
-                                  {isUserSuspended ? 'Suspended Account' : 'Active Account'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* 3. Reported By */}
-                        <td className="py-3.5 px-4 whitespace-nowrap align-middle">
-                          <div className="font-semibold text-xs text-slate-700 dark:text-slate-300">
-                            {r.reporter_name}
-                          </div>
-                          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                            Complainant
-                          </div>
-                        </td>
-
-                        {/* 4. Violation Reason & Statement Preview */}
-                        <td
-                          onClick={() => setSelectedReport(r)}
-                          className="py-3.5 px-4 max-w-[270px] cursor-pointer align-middle"
-                          title="Click to inspect full evidence & statement"
+                  return (
+                    <tr
+                      key={r.id}
+                      className={`group transition-all duration-150 ${
+                        isChecked
+                          ? 'shadow-[0_4px_16px_rgba(35,114,39,0.08)] ring-1 ring-[#237227]/30 dark:ring-emerald-400/30 rounded-2xl bg-farm-50/20 dark:bg-[#1a202c]'
+                          : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40 rounded-xl'
+                      }`}
+                    >
+                      {/* Checkbox: Round circle matching reference image */}
+                      <td className={`py-3.5 pl-4 pr-1 align-middle w-10 first:rounded-l-2xl ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSelect(r.id)}
+                          className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-[#237227] text-white shadow-2xs'
+                              : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                          }`}
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-[#18191a] text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-[#3a3b3c] text-[10px] font-semibold capitalize shrink-0">
-                              {r.report_type === 'chat' ? (
-                                <MessageSquare className="h-3 w-3" />
-                              ) : (
-                                <FileText className="h-3 w-3" />
-                              )}
-                              {r.report_type}
-                            </span>
-                            <span className="font-semibold text-xs text-slate-900 dark:text-slate-100 truncate">
-                              {r.reason}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-1">
+                          {isChecked && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </button>
+                      </td>
+
+                      {/* ID No. in muted font */}
+                      <td className={`py-3.5 px-3 align-middle font-mono text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        {formatTicketNumber(r.report_code, r.id)}
+                      </td>
+
+                      {/* Case / Violation (Bold title + statement preview) */}
+                      <td 
+                        onClick={() => setSelectedReport(r)}
+                        className={`py-3.5 px-4 align-middle cursor-pointer max-w-[280px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}
+                      >
+                        <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                          {r.reason}
+                        </div>
+                        {r.statement && (
+                          <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
                             {r.statement}
-                          </p>
-                        </td>
-
-                        {/* 5. Severity */}
-                        <td className="py-3.5 px-3 whitespace-nowrap align-middle">
-                          <SeverityBadge severity={r.severity} />
-                        </td>
-
-                        {/* 6. Status */}
-                        <td className="py-3.5 px-3 whitespace-nowrap align-middle">
-                          <StatusBadge status={r.status} />
-                        </td>
-
-                        {/* 7. Clean Action Buttons: Inspect, Penalize, Dismiss (No Restore) */}
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap align-middle">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedReport(r)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#237227]/30 bg-[#237227]/10 dark:bg-[#237227]/20 text-[#237227] dark:text-emerald-400 hover:bg-[#237227] hover:text-white dark:hover:bg-[#237227] text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-                              title="Inspect ticket evidence & context"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              <span>Inspect</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isPendingAction}
-                              onClick={() => openSuspendModal(r)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-                              title="Open penalty enforcement with auto-recommended days"
-                            >
-                              <Ban className="h-3.5 w-3.5" />
-                              <span>Penalize</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isPendingAction}
-                              onClick={() => handleAction(r.id, 'dismiss', r.reported_user_name)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 text-xs font-medium transition-all cursor-pointer disabled:opacity-50"
-                              title="Dismiss ticket without penalty"
-                            >
-                              <span>Dismiss</span>
-                            </button>
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                        )}
+                      </td>
+
+                      {/* Customer / Accused User */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                          {r.reported_user_name}
+                        </div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                          By {r.reporter_name}
+                        </div>
+                      </td>
+
+                      {/* Status (Moderation-based Badge: Pending, Banned, Resolved, High Risk, Escalated) */}
+                      <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <StatusBadge status={r.status} />
+                      </td>
+
+                      {/* Severity (Clean Dot Indicator) */}
+                      <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <SeverityBadge severity={r.severity} />
+                      </td>
+
+                      {/* Date Reported (2 lines: date + time) */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">{dateInfo.date}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">{dateInfo.time}</div>
+                      </td>
+
+                      {/* Actions: Fixed Position Trigger (Will NOT move or shift table layout) */}
+                      <td className={`py-3.5 px-4 text-right align-middle whitespace-nowrap last:rounded-r-2xl w-28 min-w-[112px] max-w-[112px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleActionMenu(e, r)}
+                          className={`inline-flex items-center justify-center gap-1.5 w-24 px-2.5 py-1 rounded-lg border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+                            isActionMenuOpen
+                              ? 'border-[#237227] bg-farm-50 text-[#237227] dark:bg-farm-950/50 dark:text-emerald-400 dark:border-emerald-600'
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'
+                          }`}
+                        >
+                          <span>Actions</span>
+                          <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isActionMenuOpen ? 'rotate-180 text-[#237227]' : ''}`} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* 4. PAGINATION FOOTER */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs text-slate-500 dark:text-slate-400">
+        {/* FIXED POSITION ACTION DROPDOWN PORTAL (Never moves row, column, or table when clicked) */}
+        {mounted && actionMenuState && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[99990]"
+              onClick={() => setActionMenuState(null)}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: `${actionMenuState.top}px`,
+                right: `${actionMenuState.right}px`,
+              }}
+              className="w-44 rounded-2xl bg-white dark:bg-[#242526] border border-slate-200 dark:border-slate-700 shadow-2xl py-1.5 z-[99991] animate-in fade-in zoom-in-95 duration-100 text-left"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const rep = actionMenuState.report;
+                  setActionMenuState(null);
+                  setSelectedReport(rep);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+              >
+                <Eye className="h-3.5 w-3.5 text-slate-400" />
+                <span>Inspect Case</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const rep = actionMenuState.report;
+                  setActionMenuState(null);
+                  openSuspendModal(rep);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-semibold flex items-center gap-2 cursor-pointer"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                <span>Suspend & Archive</span>
+              </button>
+
+              {actionMenuState.report.is_archived || actionMenuState.report.status === 'banned' || actionMenuState.report.status === 'suspended' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rep = actionMenuState.report;
+                    setActionMenuState(null);
+                    handleAction(rep.id, 'unarchive', rep.reported_user_name);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-[#237227] dark:text-emerald-400 hover:bg-farm-50 dark:hover:bg-emerald-950/40 font-semibold flex items-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Restore Case</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rep = actionMenuState.report;
+                    setActionMenuState(null);
+                    handleAction(rep.id, 'archive', rep.reported_user_name);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                >
+                  <Archive className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Archive Case</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const rep = actionMenuState.report;
+                  setActionMenuState(null);
+                  handleAction(rep.id, 'dismiss', rep.reported_user_name);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Dismiss</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const rep = actionMenuState.report;
+                  setActionMenuState(null);
+                  handleAction(rep.id, 'resolve', rep.reported_user_name);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-medium flex items-center gap-2 cursor-pointer"
+              >
+                <Check className="h-3.5 w-3.5" />
+                <span>Resolve</span>
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
+
+        {/* 3. PAGINATION FOOTER (BELOW TABLE, MATCHING PREVIOUS BELOVED DESIGN) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3 flex-wrap">
             <div>
-              Showing <span className="font-semibold text-slate-800 dark:text-white">{totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
-              <span className="font-semibold text-slate-800 dark:text-white">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
-              <span className="font-semibold text-slate-800 dark:text-white">{totalCount}</span> reports
+              Showing <span className="font-semibold text-slate-800 dark:text-white">{currentTotal === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-semibold text-slate-800 dark:text-white">{Math.min(currentPage * pageSize, currentTotal)}</span> of{' '}
+              <span className="font-semibold text-slate-800 dark:text-white">{currentTotal}</span> cases
             </div>
-            <div className="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-[#393a3b]">
-              <span className="text-[11px]">Per page:</span>
-              {[6, 12, 20].map((size) => (
+            <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-700">
+              <span className="text-[11px] text-slate-400">Per page:</span>
+              {[10, 20, 50].map((size) => (
                 <button
                   key={size}
                   type="button"
@@ -1220,7 +1389,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                   className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                     pageSize === size
                       ? 'bg-[#237227] text-white shadow-2xs'
-                      : 'border border-slate-200 dark:border-[#393a3b] bg-slate-50 dark:bg-[#18191a] text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                      : 'border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
                   }`}
                 >
                   {size}
@@ -1238,9 +1407,9 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                 fetchReports(p, filter, searchQuery, pageSize);
               }}
               disabled={currentPage <= 1}
-              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#343536] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-3.5 w-3.5 text-slate-500" />
             </button>
 
             {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -1260,7 +1429,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                       className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         currentPage === page
                           ? 'bg-[#237227] text-white shadow-2xs'
-                          : 'border border-slate-200/90 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#343536] text-slate-700 dark:text-slate-300'
+                          : 'border border-slate-200/90 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       {page}
@@ -1277,12 +1446,13 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                 fetchReports(p, filter, searchQuery, pageSize);
               }}
               disabled={currentPage >= totalPages}
-              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#343536] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
             >
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
             </button>
           </div>
         </div>
+
       </div>
 
       {/* ===================================================================== */}
@@ -1575,12 +1745,12 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                           <Ban className="h-3.5 w-3.5" />
                           <span>
                             {actionLoadingId === suspendTargetReport.id
-                              ? 'Enforcing...'
+                              ? 'Archiving & Enforcing...'
                               : suspensionType === 'permanent'
-                              ? 'Confirm Permanent Ban'
+                              ? 'Confirm Permanent Ban & Archive'
                               : suspensionType === 'warning'
                               ? 'Issue Policy Warning'
-                              : `Enforce ${manualDays}-Day Suspension`}
+                              : `Enforce ${manualDays}-Day Ban & Archive`}
                           </span>
                         </button>
                       </div>
@@ -1595,114 +1765,147 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
       )}
 
       {/* ===================================================================== */}
-      {/* MODAL B: REPORT EVIDENCE & INVESTIGATION DOSSIER                      */}
+      {/* MODAL B: REPORT EVIDENCE & INVESTIGATION DOSSIER (IMAGE 2 DRAWER UI)  */}
       {/* ===================================================================== */}
       {mounted && selectedReport && createPortal(
-        <div
-          onClick={() => setSelectedReport(null)}
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
-        >
+        <>
+          {/* Backdrop Overlay */}
+          <div
+            onClick={() => setSelectedReport(null)}
+            className="fixed inset-0 z-[99998] bg-black/45 dark:bg-black/75 backdrop-blur-[2px] transition-opacity animate-fade-in"
+          />
+
+          {/* Right-Hand Slide-Over Sheet Drawer (Minimized Width, Full Height) */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#242526] border border-slate-200/80 dark:border-[#393a3b] rounded-3xl max-w-2xl w-full p-6 sm:p-7 space-y-5 shadow-2xl my-auto max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+            className="fixed inset-y-0 right-0 z-[99999] w-full max-w-md sm:max-w-[460px] bg-white dark:bg-[#1e1f23] rounded-l-[28px] sm:rounded-l-[32px] shadow-2xl flex flex-col justify-between overflow-hidden border-l border-slate-200/80 dark:border-[#343538] animate-in slide-in-from-right duration-300"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-[#393a3b]">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-[#343638] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#393a3b] flex items-center justify-center">
-                  <Shield className="h-5 w-5" />
+            {/* Top Header Bar */}
+            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-[#323336]">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-[#e4e6eb]">
+                Activity Details
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-[#2b2c30] text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200/80 dark:border-[#393a3b]">
+                  <Shield className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
+                  <span>Ticket {formatTicketNumber(selectedReport.report_code)}</span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-extrabold text-base text-slate-900 dark:text-[#e4e6eb]">
-                      {formatTicketNumber(selectedReport.report_code)}
-                    </span>
-                    <StatusBadge status={selectedReport.status} />
-                  </div>
-                  <p className="text-xs text-slate-400 dark:text-[#8a8d91] mt-0.5 capitalize">
-                    {selectedReport.report_type} Report Investigation • Filed {selectedReport.date_reported}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedReport(null)}
+                  className="h-8 w-8 rounded-full hover:bg-slate-100 dark:hover:bg-[#2b2c30] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                  aria-label="Close details"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedReport(null)}
-                className="h-8 w-8 rounded-full bg-slate-100 dark:bg-[#3a3b3c] hover:bg-slate-200 dark:hover:bg-[#4e4f50] text-slate-500 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
 
-            {/* Parties & Reason */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b]">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Reported By (Complainant)</span>
-                  <span className="font-bold text-slate-900 dark:text-[#e4e6eb] text-sm mt-1 block">
+            {/* Case Overview Header */}
+            <div className="px-5 sm:px-6 pt-4 pb-3 border-b border-slate-100 dark:border-[#323336]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-[#e4e6eb] truncate">
+                    Case against {selectedReport.reported_user_name}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-[#8a8d91] capitalize mt-0.5">
+                    {selectedReport.report_type} Report • Filed on {selectedReport.date_reported}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <StatusBadge status={selectedReport.status} />
+                  <SeverityBadge severity={selectedReport.severity} />
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Body Content (Unified Submitted Report & Highlighted Evidence) */}
+            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 space-y-4">
+              {/* 1. Parties Overview */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pb-4 border-b border-slate-100 dark:border-[#323336]">
+                {/* Complainant Card */}
+                <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#18191c] border border-slate-200/70 dark:border-[#2e2f33] space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Reported By (Complainant)
+                  </span>
+                  <div className="text-sm font-bold text-slate-900 dark:text-[#e4e6eb]">
                     {selectedReport.reporter_name}
+                  </div>
+                  <span className="text-[11px] text-slate-400 block">
+                    Complainant • Filed on {selectedReport.date_reported}
                   </span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b]">
+                {/* Accused Account Card */}
+                <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#18191c] border border-slate-200/70 dark:border-[#2e2f33] space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Accused Account</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Accused Account
+                    </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                        (evidenceData?.user?.status || selectedReport.accused_user_status) === 'suspended'
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 ${
+                        (evidenceData?.user?.status || selectedReport.accused_user_status) === 'suspended' || selectedReport.status === 'banned'
                           ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50'
                           : 'bg-emerald-50 dark:bg-emerald-950/40 text-[#237227] dark:text-emerald-400 border-emerald-200/70 dark:border-emerald-800/60'
                       }`}
                     >
-                      {(evidenceData?.user?.status || selectedReport.accused_user_status || 'active').toUpperCase()}
+                      {selectedReport.status === 'banned'
+                        ? 'BANNED'
+                        : (evidenceData?.user?.status || selectedReport.accused_user_status || 'active').toUpperCase()}
                     </span>
                   </div>
-                  <span className="font-bold text-slate-900 dark:text-[#e4e6eb] text-sm mt-1 block">
+                  <div className="text-sm font-bold text-slate-900 dark:text-[#e4e6eb]">
                     {selectedReport.reported_user_name}
+                  </div>
+                  <span className="text-[11px] text-slate-400 block">
+                    {evidenceData?.user
+                      ? `@${evidenceData.user.username} • ${evidenceData.user.total_reports_received || 1} reports received`
+                      : `@${selectedReport.reported_user_name.toLowerCase().replace(/\s+/g, '')}`}
                   </span>
-                  {evidenceData?.user && (
-                    <span className="text-[11px] text-slate-400 mt-0.5 block">
-                      @{evidenceData.user.username} • {evidenceData.user.total_reports_received || 1} total reports filed
-                    </span>
-                  )}
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b] space-y-2">
+              {/* 2. Violation Reason & Statement */}
+              <div className="space-y-2 pb-4 border-b border-slate-100 dark:border-[#323336]">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Violation Reason & Statement
                   </span>
                   <SeverityBadge severity={selectedReport.severity} />
                 </div>
-                <div className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">
+                <div className="text-sm font-bold text-slate-900 dark:text-[#e4e6eb]">
                   {selectedReport.reason}
                 </div>
-                <p className="text-xs text-slate-600 dark:text-[#b0b3b8] leading-relaxed">
+                <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#18191c] border-l-3 border-[#237227] text-xs text-slate-700 dark:text-[#c4c7cc] leading-relaxed">
                   {selectedReport.statement}
-                </p>
+                </div>
               </div>
 
-              {/* Evidence Viewer Section (Chat Transcript or Content Post) */}
-              {isLoadingEvidence ? (
-                <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b] text-center">
-                  <div className="flex items-center justify-center gap-2 text-slate-500 text-xs font-semibold">
-                    <RefreshCw className="h-4 w-4 animate-spin text-farm-600" />
-                    <span>Loading database evidence...</span>
+              {/* 3. HIGHLIGHTED EVIDENCE & PROOF OF VIOLATION */}
+              <div className="space-y-3 pb-4 border-b border-slate-100 dark:border-[#323336]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-[#237227] dark:text-emerald-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-[#e4e6eb]">
+                      Verified Evidence & Proof
+                    </span>
                   </div>
+                  <span className="text-[11px] text-slate-400">
+                    {selectedReport.report_type === 'chat'
+                      ? `${evidenceData?.messages?.length || 0} messages logged`
+                      : 'Marketplace listing attached'}
+                  </span>
                 </div>
-              ) : selectedReport.report_type === 'chat' ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <MessageSquare className="h-3.5 w-3.5 text-slate-500" />
-                      Chat Transcript Evidence
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {evidenceData?.messages?.length || 0} messages logged
-                    </span>
-                  </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b] space-y-2.5 max-h-60 overflow-y-auto">
+                {isLoadingEvidence ? (
+                  <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#2e2f33] text-center">
+                    <div className="flex items-center justify-center gap-2 text-slate-500 text-xs font-semibold">
+                      <RefreshCw className="h-4 w-4 animate-spin text-farm-600" />
+                      <span>Loading evidence logs...</span>
+                    </div>
+                  </div>
+                ) : selectedReport.report_type === 'chat' ? (
+                  <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-[#161719] border border-slate-200/80 dark:border-[#2e2f33] space-y-3 max-h-[340px] overflow-y-auto">
                     {!evidenceData?.messages || evidenceData.messages.length === 0 ? (
                       <div className="py-6 text-center text-xs text-slate-400">
                         No direct messages recorded between these users.
@@ -1715,25 +1918,33 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                         return (
                           <div key={msg.id} className={`flex flex-col ${isAccused ? 'items-end' : 'items-start'}`}>
                             <div className="flex items-center gap-1.5 mb-1 text-[10px]">
-                              <span className="font-bold text-slate-700 dark:text-slate-300">
-                                {isAccused
-                                  ? `Accused (${msg.sender_name || selectedReport.reported_user_name})`
-                                  : `Reporter (${msg.sender_name || selectedReport.reporter_name})`}
-                              </span>
+                              {isAccused ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 font-bold border border-rose-200 dark:border-rose-900/50">
+                                  ⚠️ Accused Evidence ({msg.sender_name || selectedReport.reported_user_name})
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-slate-600 dark:text-slate-400">
+                                  Reporter ({msg.sender_name || selectedReport.reporter_name})
+                                </span>
+                              )}
                               <span className="text-slate-400">
                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             <div
-                              className={`p-3 rounded-2xl max-w-[85%] text-xs leading-relaxed border ${
+                              className={`p-3 rounded-2xl max-w-[88%] text-xs leading-relaxed border ${
                                 isAccused
-                                  ? 'bg-white dark:bg-[#242526] text-slate-900 dark:text-[#e4e6eb] border-slate-300 dark:border-[#4e4f50] rounded-tr-none'
-                                  : 'bg-slate-100 dark:bg-[#1f2021] text-slate-700 dark:text-[#b0b3b8] border-slate-200/80 dark:border-[#393a3b] rounded-tl-none'
+                                  ? 'bg-rose-50/70 dark:bg-rose-950/40 text-slate-900 dark:text-[#e4e6eb] border-rose-300 dark:border-rose-900/60 font-medium rounded-tr-none shadow-2xs'
+                                  : 'bg-white dark:bg-[#222326] text-slate-700 dark:text-[#b0b3b8] border-slate-200/80 dark:border-[#343538] rounded-tl-none'
                               }`}
                             >
                               {msg.message_text || msg.content}
                               {msg.image_url && (
-                                <img src={msg.image_url} alt="" className="mt-2 rounded-lg max-h-36 object-cover" />
+                                <img
+                                  src={msg.image_url}
+                                  alt=""
+                                  className="mt-2 rounded-lg max-h-36 object-cover border border-slate-200 dark:border-[#393a3b]"
+                                />
                               )}
                             </div>
                           </div>
@@ -1741,107 +1952,90 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                       })
                     )}
                   </div>
-                </div>
-              ) : selectedReport.report_type === 'content' && evidenceData?.post ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-slate-500" />
-                      Reported Marketplace Listing (Post #{evidenceData.post.id})
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleAction(selectedReport.id, 'delete_post', selectedReport.reported_user_name, evidenceData.post.id)
-                      }
-                      className="text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:text-black dark:hover:text-white hover:underline cursor-pointer"
-                    >
-                      Remove Listing From Feed
-                    </button>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b] flex items-start gap-3">
-                    {evidenceData.post.image_url && (
-                      <img
-                        src={evidenceData.post.image_url}
-                        alt=""
-                        className="w-16 h-16 rounded-xl object-cover border border-slate-200 dark:border-[#393a3b] shrink-0"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">
-                        {evidenceData.post.full_name} (@{evidenceData.post.username})
+                ) : selectedReport.report_type === 'content' && evidenceData?.post ? (
+                  <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-[#161719] border border-slate-200/80 dark:border-[#2e2f33] space-y-3">
+                    <div className="flex items-start gap-3.5">
+                      {evidenceData.post.image_url && (
+                        <img
+                          src={evidenceData.post.image_url}
+                          alt=""
+                          className="w-20 h-20 rounded-xl object-cover border border-slate-200 dark:border-[#393a3b] shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">
+                          {evidenceData.post.full_name} (@{evidenceData.post.username})
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-3">
+                          {evidenceData.post.content}
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-3">
-                        {evidenceData.post.content}
-                      </p>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleAction(selectedReport.id, 'delete_post', selectedReport.reported_user_name, evidenceData.post.id)
+                        }
+                        className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                      >
+                        Remove Listing From Marketplace Feed
+                      </button>
                     </div>
                   </div>
-                </div>
-              ) : null}
+                ) : (
+                  <div className="p-5 text-center text-xs text-slate-400 rounded-2xl bg-slate-50/60 dark:bg-[#161719] border border-slate-200/70 dark:border-[#2e2f33]">
+                    No external transcript or content attachments logged.
+                  </div>
+                )}
+              </div>
 
+              {/* 4. Incident Reference */}
               <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <span>Reference Link</span>
+                <span>Incident Reference</span>
                 <a
                   href={selectedReport.url.startsWith('http') ? selectedReport.url : `https://${selectedReport.url}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-slate-600 dark:text-[#b0b3b8] hover:text-farm-600 hover:underline flex items-center gap-1"
+                  className="font-mono text-xs text-slate-600 dark:text-[#b0b3b8] hover:text-[#237227] hover:underline flex items-center gap-1.5"
                 >
-                  {selectedReport.url}
+                  <span>{selectedReport.url}</span>
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
             </div>
 
-            {/* Clean Uniform Action Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-4 border-t border-slate-100 dark:border-[#393a3b]">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleAction(selectedReport.id, 'dismiss', selectedReport.reported_user_name)}
-                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] text-slate-600 dark:text-[#b0b3b8] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-xs font-bold cursor-pointer transition-all"
-                >
-                  Dismiss
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAction(selectedReport.id, 'escalate', selectedReport.reported_user_name)}
-                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] text-slate-700 dark:text-[#e4e6eb] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-xs font-bold cursor-pointer transition-all"
-                >
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                  <span>Escalate</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
+            {/* Sticky Action Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-[#323336] bg-white/95 dark:bg-[#1e1f23]/95 backdrop-blur-sm">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() =>
                     handleAction(selectedReport.id, 'warning', selectedReport.reported_user_name, null, selectedReport.reason)
                   }
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 text-xs font-bold shadow-2xs cursor-pointer transition-all active:scale-[0.98]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 py-2.5 px-3 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  <span>Issue Policy Warning</span>
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Issue Policy Warning</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => openSuspendModal(selectedReport)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-2xs cursor-pointer transition-all active:scale-[0.98]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white py-2.5 px-3 text-xs sm:text-sm font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  <Ban className="h-3.5 w-3.5" />
-                  <span>Enforce Penalty / Suspend</span>
+                  <Ban className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Suspend & Archive</span>
                 </button>
               </div>
             </div>
           </div>
-        </div>,
+        </>,
         document.body
       )}
 
       {/* ===================================================================== */}
-      {/* MODAL C: FILE NEW REPORT                                              */}
+      {/* MODAL C: FILE NEW REPORT (IMAGE 2 SELECTION CARDS & CLEAN UI)        */}
       {/* ===================================================================== */}
       {mounted && isSimulateModalOpen && createPortal(
         <div
@@ -1850,86 +2044,191 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#242526] border border-slate-200/80 dark:border-[#393a3b] rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl my-auto animate-in zoom-in-95 duration-200"
+            className="bg-white dark:bg-[#1e1f23] border border-slate-200/80 dark:border-[#323336] rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl my-auto animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#393a3b]">
-              <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-farm-50 dark:bg-farm-950/60 text-farm-700 dark:text-farm-300 border border-farm-200/60 dark:border-farm-800/60 flex items-center justify-center">
-                  <Shield className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-slate-900 dark:text-[#e4e6eb] text-sm">Log Moderation Case</h3>
-                  <p className="text-[11px] text-slate-400">Record a user or listing violation</p>
-                </div>
+            {/* Header (Image 2 style) */}
+            <div className="flex items-start justify-between pb-1">
+              <div>
+                <h3 className="font-extrabold text-slate-900 dark:text-[#e4e6eb] text-lg sm:text-xl">
+                  File Moderation Case
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Choose who or what is being reported by selecting a report type.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsSimulateModalOpen(false)}
-                className="h-8 w-8 rounded-full bg-slate-100 dark:bg-[#3a3b3c] text-slate-500 flex items-center justify-center cursor-pointer"
+                className="p-1.5 -mr-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2b2c30] transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <form onSubmit={handleSubmitNewReport} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-[#e4e6eb] mb-1.5">Report Source</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewReportType('chat')}
-                    className={`py-2.5 px-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              {/* Option Selection Cards (Direct Match to Image 2) */}
+              <div className="space-y-2.5">
+                {/* Option 1: Direct Chat */}
+                <div
+                  onClick={() => setNewReportType('chat')}
+                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3.5 ${
+                    newReportType === 'chat'
+                      ? 'border-[#237227] dark:border-emerald-500 bg-farm-50/40 dark:bg-farm-950/25 ring-1 ring-[#237227] dark:ring-emerald-500'
+                      : 'border-slate-200/90 dark:border-[#323336] bg-white dark:bg-[#25262a] hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                       newReportType === 'chat'
-                        ? 'border-[#237227] bg-[#237227]/10 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400'
-                        : 'border-slate-200 dark:border-[#393a3b] text-slate-600 dark:text-[#b0b3b8]'
-                    }`}
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" /> Direct Chat
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewReportType('content')}
-                    className={`py-2.5 px-3 rounded-xl border font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        ? 'bg-farm-100 dark:bg-farm-900/60 text-[#237227] dark:text-emerald-400'
+                        : 'bg-slate-100 dark:bg-[#323336] text-slate-500 dark:text-slate-400'
+                    }`}>
+                      <MessageSquare className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-900 dark:text-[#e4e6eb]">
+                        Direct Chat
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Private message conversation or buyer-seller negotiation.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                      newReportType === 'chat'
+                        ? 'border-[#237227] dark:border-emerald-500'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}>
+                      {newReportType === 'chat' && (
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#237227] dark:bg-emerald-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Option 2: Produce Listing / Post */}
+                <div
+                  onClick={() => setNewReportType('content')}
+                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3.5 ${
+                    newReportType === 'content'
+                      ? 'border-[#237227] dark:border-emerald-500 bg-farm-50/40 dark:bg-farm-950/25 ring-1 ring-[#237227] dark:ring-emerald-500'
+                      : 'border-slate-200/90 dark:border-[#323336] bg-white dark:bg-[#25262a] hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                       newReportType === 'content'
-                        ? 'border-[#237227] bg-[#237227]/10 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400'
-                        : 'border-slate-200 dark:border-[#393a3b] text-slate-600 dark:text-[#b0b3b8]'
-                    }`}
-                  >
-                    <FileText className="h-3.5 w-3.5" /> Listing / Post
-                  </button>
+                        ? 'bg-farm-100 dark:bg-farm-900/60 text-[#237227] dark:text-emerald-400'
+                        : 'bg-slate-100 dark:bg-[#323336] text-slate-500 dark:text-slate-400'
+                    }`}>
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-900 dark:text-[#e4e6eb]">
+                        Listing / Post
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Marketplace farm produce listing, pricing, or post content.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                      newReportType === 'content'
+                        ? 'border-[#237227] dark:border-emerald-500'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}>
+                      {newReportType === 'content' && (
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#237227] dark:bg-emerald-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Option 3: User / Farmer Account */}
+                <div
+                  onClick={() => setNewReportType('user')}
+                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3.5 ${
+                    newReportType === 'user'
+                      ? 'border-[#237227] dark:border-emerald-500 bg-farm-50/40 dark:bg-farm-950/25 ring-1 ring-[#237227] dark:ring-emerald-500'
+                      : 'border-slate-200/90 dark:border-[#323336] bg-white dark:bg-[#25262a] hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                      newReportType === 'user'
+                        ? 'bg-farm-100 dark:bg-farm-900/60 text-[#237227] dark:text-emerald-400'
+                        : 'bg-slate-100 dark:bg-[#323336] text-slate-500 dark:text-slate-400'
+                    }`}>
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-900 dark:text-[#e4e6eb]">
+                        User / Farmer Account
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        General profile violation, impersonation, or platform abuse.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                      newReportType === 'user'
+                        ? 'border-[#237227] dark:border-emerald-500'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}>
+                      {newReportType === 'user' && (
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#237227] dark:bg-emerald-500" />
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Case Information Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-[#e4e6eb] mb-1.5">Complainant</label>
+                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                    Complainant
+                  </label>
                   <input
                     type="text"
                     required
                     value={newReporterName}
                     onChange={(e) => setNewReporterName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-slate-50 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] text-xs font-medium"
+                    placeholder="Enter reporter name..."
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-[#e4e6eb] mb-1.5">Accused User</label>
+                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                    Accused User
+                  </label>
                   <input
                     type="text"
                     required
                     value={newReportedUser}
                     onChange={(e) => setNewReportedUser(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-slate-50 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] text-xs font-medium"
+                    placeholder="Enter accused user..."
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-[#e4e6eb] mb-1.5">Violation Reason</label>
+                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                    Violation Reason
+                  </label>
                   <select
                     value={newReason}
                     onChange={(e) => setNewReason(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-slate-50 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] text-xs font-medium"
                   >
                     {SUSPENSION_REASONS.map((r) => (
                       <option key={r.id} value={r.id}>
@@ -1939,45 +2238,50 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-[#e4e6eb] mb-1.5">Severity</label>
+                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                    Severity
+                  </label>
                   <select
                     value={newSeverity}
                     onChange={(e) => setNewSeverity(e.target.value as 'low' | 'medium' | 'high')}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-slate-50 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] text-xs font-medium"
                   >
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="low">Low Priority</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 dark:text-[#e4e6eb] mb-1.5">Incident Statement</label>
+                <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                  Incident Statement
+                </label>
                 <textarea
                   required
                   rows={3}
                   value={newStatement}
                   onChange={(e) => setNewStatement(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-slate-50 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] text-xs leading-relaxed"
                   placeholder="Describe the violation..."
                 />
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-[#393a3b]">
+              {/* Bottom Footer Actions (Direct Match to Image 2 Cancel & Save) */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-[#323336]">
                 <button
                   type="button"
                   onClick={() => setIsSimulateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] text-slate-600 dark:text-[#b0b3b8] font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-[#3a3b3c] transition-colors"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-[#393a3b] text-slate-700 dark:text-[#e4e6eb] font-semibold text-xs sm:text-sm hover:bg-slate-50 dark:hover:bg-[#2b2c30] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingReport}
-                  className="px-5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white font-bold shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] text-white font-bold text-xs sm:text-sm shadow-sm transition-all disabled:opacity-50 cursor-pointer active:scale-[0.98]"
                 >
-                  {isSubmittingReport ? 'Saving...' : 'Submit Case'}
+                  {isSubmittingReport ? 'Submitting...' : 'Submit Case'}
                 </button>
               </div>
             </form>

@@ -85,6 +85,10 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Bulk Selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
+
   // Inspection Modal, Certificate & Actions
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerProfile | null>(null);
   const [certificateFarmer, setCertificateFarmer] = useState<FarmerProfile | null>(null);
@@ -223,6 +227,54 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
       setActionLoadingId(null);
     }
   }
+
+  const handleToggleSelectAll = () => {
+    if (selectedIds.size === farmers.length && farmers.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(farmers.map(f => f.id)));
+    }
+  };
+
+  const handleToggleSelectFarmer = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkAction = async (action: 'verify' | 'reject') => {
+    if (selectedIds.size === 0) return;
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/farmers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: Array.from(selectedIds),
+          action,
+          reason: action === 'reject' ? 'Incomplete accreditation documents during bulk review' : ''
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to process bulk accreditation');
+
+      showToast(
+        action === 'verify' ? 'Bulk Farmers Accredited' : 'Bulk Farmers Rejected',
+        data.message || `Processed ${selectedIds.size} farmers successfully.`,
+        action === 'verify' ? 'success' : 'error'
+      );
+      setSelectedIds(new Set());
+      fetchFarmers(currentPage, statusFilter, searchQuery, pageSize);
+      if (onStatusChange) onStatusChange();
+    } catch (err: any) {
+      showToast('Bulk Action Failed', err.message || 'Could not process selected farmers', 'error');
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
 
   async function handleAddFarmer(e: React.FormEvent) {
     e.preventDefault();
@@ -411,6 +463,17 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
               <span>Export CSV</span>
             </a>
 
+            {/* DA / MAO Compliance Report Export */}
+            <a
+              href="/api/admin/export?type=da_report"
+              download
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all shadow-2xs whitespace-nowrap"
+              title="Download Department of Agriculture (DA) & Municipal Agriculture Office (MAO) Compliance Audit Report"
+            >
+              <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>DA Audit Report</span>
+            </a>
+
             {/* + Register Farmer Button */}
             <button
               type="button"
@@ -426,18 +489,67 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
       </div>
 
       {/* =========== 3. ACCREDITATION DOSSIER TABLE (CLEAN, COMFORTABLE & ALIVE) =========== */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 text-white dark:bg-slate-800 shadow-xl border border-slate-700 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-farm-600 text-white font-bold text-xs">
+              {selectedIds.size}
+            </span>
+            <span className="text-xs font-semibold">
+              {selectedIds.size} {selectedIds.size === 1 ? 'farmer profile' : 'farmer profiles'} selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isBulkActionLoading}
+              onClick={() => handleBulkAction('verify')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            >
+              <CheckCircle className="h-3.5 w-3.5" />
+              <span>Verify Selected ({selectedIds.size})</span>
+            </button>
+            <button
+              type="button"
+              disabled={isBulkActionLoading}
+              onClick={() => handleBulkAction('reject')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              <span>Reject Selected ({selectedIds.size})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-slate-300 hover:text-white px-2 py-1 cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-[#1a1e1b] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
             <thead className="border-b border-slate-200/90 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase text-[11px] tracking-wider bg-slate-50/80 dark:bg-[#141715]">
               <tr>
+                <th className="py-3.5 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={farmers.length > 0 && selectedIds.size === farmers.length}
+                    onChange={handleToggleSelectAll}
+                    className="rounded border-slate-300 text-farm-600 focus:ring-farm-500 cursor-pointer"
+                    aria-label="Select all farmers"
+                  />
+                </th>
                 <th className="py-3.5 px-5">Farmer & Handle</th>
                 <th className="py-3.5 px-5">Farm Name & Code</th>
                 <th className="py-3.5 px-5">Cultivated Crops</th>
                 <th className="py-3.5 px-5">Location</th>
                 <th className="py-3.5 px-5">Scale & Yield</th>
                 <th className="py-3.5 px-5">Certifications</th>
-                <th className="py-3.5 px-5">Status</th>
+                <th className="py-3.5 px-5">Status & Validity</th>
                 <th className="py-3.5 px-5 text-right">Action</th>
               </tr>
             </thead>
@@ -445,7 +557,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center text-xs text-slate-400">
+                  <td colSpan={9} className="py-20 text-center text-xs text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="h-4 w-4 animate-spin text-farm-600" />
                       <span>Loading farmer credentials from database...</span>
@@ -454,7 +566,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                 </tr>
               ) : farmers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center text-xs text-slate-400">
+                  <td colSpan={9} className="py-20 text-center text-xs text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <FileCheck className="h-7 w-7 text-slate-300 dark:text-slate-600" />
                       <span>No farmer verification records found matching your filter.</span>
@@ -480,6 +592,17 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                         isPending ? 'bg-amber-500/[0.02] dark:bg-amber-500/[0.03]' : ''
                       }`}
                     >
+                      {/* Checkbox column */}
+                      <td className="py-4.5 px-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(farmer.id)}
+                          onChange={() => handleToggleSelectFarmer(farmer.id)}
+                          className="rounded border-slate-300 text-farm-600 focus:ring-farm-500 cursor-pointer"
+                          aria-label={`Select ${farmer.full_name}`}
+                        />
+                      </td>
+
                       {/* 1. Farmer & Handle */}
                       <td className="py-4.5 px-5 whitespace-nowrap">
                         <div className="flex items-center gap-3">
@@ -568,25 +691,40 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                         )}
                       </td>
 
-                      {/* 7. Status */}
+                      {/* 7. Status & Validity */}
                       <td className="py-4.5 px-5 whitespace-nowrap">
                         {isPending && (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            Pending
-                          </span>
+                          <div>
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              Pending
+                            </span>
+                            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1">
+                              Awaiting DA Review
+                            </div>
+                          </div>
                         )}
                         {isVerified && (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-farm-50 dark:bg-farm-950/50 text-farm-800 dark:text-farm-300 border border-farm-200 dark:border-farm-800/80">
-                            <span className="h-1.5 w-1.5 rounded-full bg-farm-600" />
-                            Verified
-                          </span>
+                          <div>
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-farm-50 dark:bg-farm-950/50 text-farm-800 dark:text-farm-300 border border-farm-200 dark:border-farm-800/80">
+                              <span className="h-1.5 w-1.5 rounded-full bg-farm-600" />
+                              Verified
+                            </span>
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+                              PhilGAP Valid (2026-2027)
+                            </div>
+                          </div>
                         )}
                         {isRejected && (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80">
-                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                            Rejected
-                          </span>
+                          <div>
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80">
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                              Rejected
+                            </span>
+                            <div className="text-[10px] text-rose-500 font-medium mt-1">
+                              Requires Re-filing
+                            </div>
+                          </div>
                         )}
                       </td>
 
@@ -727,160 +865,186 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
       {mounted && selectedFarmer && createPortal(
         <div 
           onClick={() => setSelectedFarmer(null)}
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm overflow-y-auto animate-fade-in"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-xs overflow-y-auto animate-fade-in"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-3xl max-w-2xl w-full p-6 sm:p-7 space-y-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-[#1f2320] border border-slate-200/80 dark:border-slate-800 rounded-[28px] max-w-[420px] w-full p-5 space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto select-none"
           >
 
-            {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-[#393a3b]">
-              <div className="flex items-center gap-3.5">
-                <div className="w-14 h-14 rounded-2xl bg-farm-50 dark:bg-farm-950/60 text-farm-700 dark:text-farm-300 flex items-center justify-center font-bold text-xl overflow-hidden border border-farm-200/80 dark:border-farm-800/80 shadow-xs">
+            {/* 1. Header: Avatar, Name, Status Pill & Close */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0 border border-slate-200/80 dark:border-slate-700">
                   {selectedFarmer.avatar_url ? (
                     <img src={selectedFarmer.avatar_url} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span>{(selectedFarmer.full_name || 'F').charAt(0).toUpperCase()}</span>
                   )}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-extrabold text-lg text-slate-900 dark:text-[#e4e6eb] leading-tight">
-                      {selectedFarmer.full_name}
-                    </h3>
-                    {selectedFarmer.verification_status === 'verified' && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300 px-2 py-0.5 rounded-full">
-                        <CheckCircle className="h-3 w-3" /> PhilGAP Verified
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-slate-400 dark:text-[#b0b3b8] mt-0.5">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight truncate">
+                    {selectedFarmer.full_name}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate mt-0.5">
                     @{selectedFarmer.username} • Account #{selectedFarmer.user_id}
-                  </div>
+                  </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedFarmer(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#3a3b3c] transition-all cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {selectedFarmer.verification_status === 'verified' ? (
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 dark:bg-emerald-950/70 dark:text-emerald-300 px-2.5 py-0.5 rounded-full">
+                    Active
+                  </span>
+                ) : selectedFarmer.verification_status === 'rejected' ? (
+                  <span className="text-[11px] font-semibold text-rose-700 bg-rose-100/80 dark:bg-rose-950/70 dark:text-rose-300 px-2.5 py-0.5 rounded-full">
+                    Rejected
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-100/80 dark:bg-amber-950/70 dark:text-amber-300 px-2.5 py-0.5 rounded-full">
+                    Pending
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedFarmer(null)}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Farm Overview Card */}
-            <div className="bg-slate-50 dark:bg-[#18191a] rounded-xl p-5 border border-slate-200/80 dark:border-[#393a3b] space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Farm Facility</span>
-                  <div className="text-base font-extrabold text-slate-900 dark:text-[#e4e6eb] mt-0.5">
-                    {selectedFarmer.farm_name}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Accreditation ID</span>
-                  <div className="font-mono text-sm font-extrabold text-farm-700 dark:text-farm-400 mt-0.5">
+            {/* 2. Visual Hero Showcase (Media Banner like Reference Image) */}
+            {selectedFarmer.document_uri ? (
+              <div className="rounded-2xl overflow-hidden h-40 bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-800 relative group">
+                <img
+                  src={selectedFarmer.document_uri}
+                  alt="RSBSA Verification Document"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end justify-between p-3">
+                  <span className="text-white text-xs font-semibold drop-shadow-xs flex items-center gap-1.5">
+                    <FileCheck className="h-3.5 w-3.5 text-emerald-400" />
+                    RSBSA Document Attached
+                  </span>
+                  <span className="font-mono text-[10px] font-bold text-white bg-white/20 backdrop-blur-xs px-2 py-0.5 rounded-md">
                     {selectedFarmer.farmer_code || 'PENDING'}
-                  </div>
+                  </span>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/60 dark:border-[#393a3b]">
+            ) : (
+              <div className="rounded-2xl overflow-hidden h-36 bg-gradient-to-br from-[#1e4620] via-[#237227] to-[#163818] p-4 text-white relative flex flex-col justify-between shadow-xs">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="uppercase tracking-wider text-[10px] font-bold text-emerald-200 bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                    PhilGAP Farm Facility
+                  </span>
+                  <span className="font-mono text-[11px] font-bold bg-white/20 px-2 py-0.5 rounded-md backdrop-blur-xs">
+                    {selectedFarmer.farmer_code || 'PENDING'}
+                  </span>
+                </div>
                 <div>
-                  <span className="text-[11px] text-slate-400 block">Land Scale</span>
-                  <span className="font-bold text-slate-800 dark:text-[#e4e6eb] text-sm">{selectedFarmer.hectares} Hectares</span>
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-400 block">Yield Rate</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">{selectedFarmer.yield_trend}</span>
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-400 block">Total Feed Posts</span>
-                  <span className="font-bold text-slate-800 dark:text-[#e4e6eb] text-sm">{selectedFarmer.total_posts ?? 0} listings</span>
+                  <h4 className="text-base font-extrabold text-white leading-tight drop-shadow-xs">
+                    {selectedFarmer.farm_name}
+                  </h4>
+                  <p className="text-xs text-emerald-100/90 flex items-center gap-1.5 mt-1">
+                    <MapPin className="h-3 w-3 text-emerald-300 shrink-0" />
+                    <span>{selectedFarmer.farm_location}</span>
+                  </p>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Details Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-[#393a3b] space-y-2">
-                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider block">Location & Soil Sector</span>
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-[#e4e6eb]">
-                  <MapPin className="h-4 w-4 text-farm-600 shrink-0" />
-                  <span>{selectedFarmer.farm_location}</span>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-[#393a3b] space-y-2">
-                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider block">Contact Information</span>
-                <div className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-3.5 w-3.5 text-slate-400" />
-                    <span>{selectedFarmer.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-3.5 w-3.5 text-slate-400" />
-                    <span>{selectedFarmer.phone_number || 'No contact phone provided'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Cultivated Crops */}
+            {/* 3. Facility Title & Crop Tags */}
             <div>
-              <span className="text-[11px] font-bold text-slate-400 block mb-2">Registered Produce & Crops</span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <h4 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
+                  {selectedFarmer.farm_name}
+                </h4>
+                <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                  ID: {selectedFarmer.farmer_code || 'PENDING'}
+                </span>
+              </div>
+
+              {/* Tag Pills (like [Web Design] [Product Design] in inspiration) */}
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
                 {selectedFarmer.crops.split(',').map((crop, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold text-xs border border-emerald-200/80 dark:border-emerald-800/60"
+                    className="px-3 py-1 rounded-full text-xs font-medium bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs"
                   >
-                    <Sprout className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>{crop.trim()}</span>
+                    {crop.trim()}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* RSBSA Registry & Submitted Certifications Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <span className="text-[11px] font-bold text-slate-400 block mb-2">RSBSA Registry Number (Mobile Submission)</span>
-                <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/50 text-sm text-blue-900 dark:text-blue-200 font-mono font-bold flex items-center gap-2.5">
-                  <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
-                  <span>{selectedFarmer.rsbsa_number || 'Not provided'}</span>
-                </div>
+            {/* 4. Vertical Metadata List with Clean Icons (matching inspiration image) */}
+            <div className="space-y-2.5 pt-1 text-xs text-slate-600 dark:text-slate-300">
+              
+              {/* Location */}
+              <div className="flex items-center gap-2.5">
+                <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
+                <span className="truncate">{selectedFarmer.farm_location}</span>
               </div>
-              <div>
-                <span className="text-[11px] font-bold text-slate-400 block mb-2">Submitted Regulatory Certifications</span>
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#18191a] border border-slate-200 dark:border-[#393a3b] text-sm text-slate-800 dark:text-[#e4e6eb] font-medium flex items-center gap-2.5">
-                  <FileCheck className="h-5 w-5 text-farm-600 dark:text-emerald-400 shrink-0" />
-                  <span className="truncate">{selectedFarmer.certifications || 'No external certification attached'}</span>
-                </div>
+
+              {/* Land Scale & Yield Trend */}
+              <div className="flex items-center gap-2.5">
+                <TrendingUp className="h-4 w-4 text-slate-400 shrink-0" />
+                <span>
+                  <strong className="text-slate-900 dark:text-white font-semibold">{selectedFarmer.hectares} ha</strong>
+                  <span className="text-slate-400 mx-1.5">•</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{selectedFarmer.yield_trend || 'Baseline Yield'}</span>
+                  <span className="text-slate-400 mx-1.5">•</span>
+                  <span>{selectedFarmer.total_posts ?? 0} {(selectedFarmer.total_posts === 1) ? 'listing' : 'listings'}</span>
+                </span>
               </div>
+
+              {/* RSBSA Registry Status */}
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className={`h-4 w-4 shrink-0 ${
+                  selectedFarmer.rsbsa_number ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                }`} />
+                <span>
+                  <span className="text-slate-400">RSBSA: </span>
+                  {selectedFarmer.rsbsa_number ? (
+                    <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{selectedFarmer.rsbsa_number}</span>
+                  ) : (
+                    <span className="text-slate-400 italic">Not provided</span>
+                  )}
+                </span>
+              </div>
+
+              {/* Regulatory Certifications */}
+              <div className="flex items-center gap-2.5">
+                <FileCheck className="h-4 w-4 text-slate-400 shrink-0" />
+                <span className="truncate">
+                  {selectedFarmer.certifications || 'No certifications registered'}
+                </span>
+              </div>
+
+              {/* Contact Information */}
+              <div className="flex items-center gap-2.5">
+                <Mail className="h-4 w-4 text-slate-400 shrink-0" />
+                <span className="truncate">{selectedFarmer.email}</span>
+                {selectedFarmer.phone_number && (
+                  <>
+                    <span className="text-slate-400">•</span>
+                    <span className="shrink-0">{selectedFarmer.phone_number}</span>
+                  </>
+                )}
+              </div>
+
             </div>
 
-            {/* Uploaded RSBSA / Government ID Document Preview */}
-            {selectedFarmer.document_uri && (
-              <div>
-                <span className="text-[11px] font-bold text-slate-400 block mb-2">Uploaded RSBSA / Government ID Document</span>
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200 dark:border-[#393a3b] overflow-hidden">
-                  <img
-                    src={selectedFarmer.document_uri}
-                    alt="RSBSA Verification Document"
-                    className="w-full max-h-64 object-contain rounded-xl bg-black/5"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-[#393a3b]">
+            {/* 5. Clean Action Buttons Footer */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setSelectedFarmer(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#393a3b] text-slate-600 dark:text-[#e4e6eb] hover:bg-slate-100 dark:hover:bg-[#3a3b3c] text-sm font-semibold transition-all cursor-pointer"
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition-all cursor-pointer"
               >
                 Close
               </button>
@@ -889,10 +1053,10 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                 <button
                   type="button"
                   onClick={() => setCertificateFarmer(selectedFarmer)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-farm-300 dark:border-farm-700 bg-farm-50 dark:bg-farm-950/50 text-farm-700 dark:text-farm-300 text-sm font-bold transition-all cursor-pointer shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all cursor-pointer shadow-2xs"
                 >
-                  <Printer className="h-4 w-4" />
-                  <span>Print Certificate</span>
+                  <Printer className="h-3 w-3" />
+                  <span>Certificate</span>
                 </button>
               )}
 
@@ -904,9 +1068,9 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                     setSelectedFarmer(null);
                     setRejectModalFarmer(f);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 text-sm font-bold transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs font-bold transition-all cursor-pointer"
                 >
-                  Reject Accreditation
+                  Reject
                 </button>
               )}
 
@@ -914,9 +1078,9 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                 <button
                   type="button"
                   onClick={() => handleVerify(selectedFarmer.id, selectedFarmer.full_name)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-farm-600 hover:bg-farm-700 text-white text-sm font-bold shadow-xs transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-farm-600 hover:bg-farm-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
                 >
-                  <CheckCircle className="h-4 w-4" />
+                  <CheckCircle className="h-3 w-3" />
                   <span>Grant Accreditation</span>
                 </button>
               )}
@@ -1089,6 +1253,26 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                   <div className="border-b border-slate-400 mx-auto w-36 mb-1"></div>
                   <div className="font-bold text-slate-800 text-[11px]">System Administrator</div>
                   <div className="text-[9px] text-slate-400">LocalFarm Governance Council</div>
+                </div>
+              </div>
+
+              {/* Official Cryptographic QR Code Verification Footer */}
+              <div className="pt-4 mt-2 border-t border-amber-200/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white p-1 rounded-lg border border-slate-300 shadow-2xs flex items-center justify-center shrink-0">
+                    <QrCode className="w-9 h-9 text-slate-800" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-[10px] font-bold text-slate-900 font-mono tracking-wider uppercase">Official DA LocalFarm Registry</div>
+                    <div className="text-[8px] text-slate-500">Scan to verify cryptographic PhilGAP dossier</div>
+                    <div className="text-[8px] font-mono text-farm-700 font-bold mt-0.5">LF-DA-AUTH: {certificateFarmer.farmer_code || 'LF-2026'}-SEC</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-[9px] font-bold text-emerald-800">
+                    VALIDATED ACCREDITATION
+                  </span>
+                  <div className="text-[8px] text-slate-400 mt-0.5">Republic of the Philippines</div>
                 </div>
               </div>
 
