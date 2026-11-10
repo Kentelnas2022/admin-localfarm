@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion, MotionProps } from 'framer-motion';
+import { motion, MotionProps, useReducedMotion } from 'framer-motion';
 
 interface FramerPhoneShellProps {
   imageSrc: string;
@@ -12,6 +12,7 @@ interface FramerPhoneShellProps {
   rotation?: number;
   scale?: number;
   floatDelay?: number;
+  floating?: boolean;
   whileHover?: MotionProps['whileHover'];
   animate?: MotionProps['animate'];
   initial?: MotionProps['initial'];
@@ -27,11 +28,13 @@ export function FramerPhoneShell({
   rotation = 0,
   scale = 1,
   floatDelay = 0,
+  floating = true,
   whileHover,
   animate,
   initial,
   transition,
 }: FramerPhoneShellProps) {
+  const reducedMotion = useReducedMotion();
   // Default spring-based floating motion
   const defaultFloatAnimation = {
     y: [-6, 6, -6],
@@ -52,10 +55,11 @@ export function FramerPhoneShell({
 
   return (
     <motion.div
-      initial={initial || { opacity: 0, y: 30, scale: 0.95 }}
+      initial={reducedMotion ? false : initial || { opacity: 0, y: 18, scale: 0.95 }}
       whileInView={{ opacity: 1, y: 0, scale }}
-      viewport={{ once: true, margin: '-50px' }}
-      whileHover={whileHover !== undefined ? whileHover : defaultHover}
+      viewport={{ once: false, amount: 0.1 }}
+      transition={transition || { duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={reducedMotion ? undefined : whileHover !== undefined ? whileHover : defaultHover}
       style={{
         width,
         rotate: rotation,
@@ -65,7 +69,7 @@ export function FramerPhoneShell({
     >
       {/* Floating wrapper */}
       <motion.div
-        animate={animate !== undefined ? animate : defaultFloatAnimation}
+        animate={reducedMotion || !floating ? { y: 0 } : animate !== undefined ? animate : defaultFloatAnimation}
         className="w-full"
       >
         {/* Physical phone bezel shell matching Framer layout */}

@@ -327,7 +327,7 @@ export function AdminMarketplace() {
     };
     const c = config[category] || config.General;
     return (
-      <span className={`inline-flex items-center text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${c.bg} ${c.text}`}>
+      <span data-category={category} className={`market-category inline-flex items-center text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${c.bg} ${c.text}`}>
         {c.label}
       </span>
     );
@@ -453,110 +453,41 @@ export function AdminMarketplace() {
       )}
 
       {activeMarketTab === 'posts' && (
-        <>
-          {/* =========== 1. KPI CARDS =========== */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Total Produce Listings */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-[#237227]/15 text-[#237227] dark:text-emerald-400 flex items-center justify-center">
-              <ShoppingBag className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-[#237227] bg-[#237227]/10 border border-[#237227]/20 px-2 py-0.5 rounded-full">
-              Live Feed
-            </span>
+        <div className="marketplace-directory members-directory space-y-6">
+          <div className="members-metrics">
+            {[
+              {label:'Marketplace posts',value:stats.totalPosts,detail:'Community produce listings',icon:ShoppingBag},
+              {label:'Field harvests',value:stats.fieldCount,detail:'Produce offered directly by growers',icon:Store},
+              {label:'Wholesale deals',value:stats.wholesalerCount,detail:'Bulk produce and trade listings',icon:Layers},
+              {label:'Flash produce',value:stats.temporaryCount,detail:'Time-sensitive produce listings',icon:Clock},
+            ].map(({label,value,detail,icon:Icon},index) => <article className="members-metric" key={label} style={{animationDelay:index*50+'ms'}}>
+              <div className="members-metric-heading"><span>{label}</span><span className="members-metric-icon"><Icon size={18} strokeWidth={1.7}/></span></div>
+              <strong>{value.toLocaleString()}</strong><p>{detail}</p>
+            </article>)}
           </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-slate-900 dark:text-[#e4e6eb] tracking-tight leading-none">
-              {stats.totalPosts.toLocaleString()}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">Marketplace Posts</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Active mobile produce listings</div>
-          </div>
-        </div>
-
-        {/* Field Harvests */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Store className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 px-2 py-0.5 rounded-full">
-              Direct Farm
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-[#237227] dark:text-emerald-400 tracking-tight leading-none">
-              {stats.fieldCount.toLocaleString()}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">Field Harvests</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Fresh vegetable and fruit crops</div>
-          </div>
-        </div>
-
-        {/* Wholesale Contracts */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <Layers className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/40 px-2 py-0.5 rounded-full">
-              Commercial
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-blue-600 dark:text-blue-400 tracking-tight leading-none">
-              {stats.wholesalerCount.toLocaleString()}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">Wholesale Deals</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Bulk trade contracts & grain sacks</div>
-          </div>
-        </div>
-
-        {/* Temporary / Flash Sales */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <Clock className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 px-2 py-0.5 rounded-full">
-              Flash Deal
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-amber-600 dark:text-amber-400 tracking-tight leading-none">
-              {stats.temporaryCount.toLocaleString()}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">Flash Produce</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Time-sensitive surplus sales</div>
-          </div>
-        </div>
-
-      </div>
 
       {/* =========== 2. SEARCH & FILTER TOOLBAR =========== */}
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3.5">
+      <div className="members-toolbar bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+        <div className="members-toolbar-layout flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3.5">
           
           {/* Search bar */}
-          <div className="relative flex-1 w-full md:max-w-md">
+          <div className="members-search relative flex-1 w-full md:max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              value={searchQuery}
+              aria-label="Search marketplace listings" value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder="Search produce description, seller name, location..."
               className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-[#131614] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 transition-all"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+              <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap sm:flex-nowrap">
+          <div className="members-controls flex items-center gap-2.5 w-full md:w-auto flex-wrap sm:flex-nowrap">
             {/* Section / View Mode Dropdown */}
             <div className="relative inline-flex items-center">
               <select
@@ -578,7 +509,7 @@ export function AdminMarketplace() {
             {/* Category Dropdown (Uniform) */}
             <div className="relative inline-flex items-center">
               <select
-                value={categoryFilter}
+                aria-label="Filter by listing category" value={categoryFilter}
                 onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
               >
@@ -600,7 +531,7 @@ export function AdminMarketplace() {
                   ? 'bg-rose-600 text-white border-rose-600'
                   : 'bg-white dark:bg-[#1a1e1b] text-rose-700 dark:text-rose-400 border-rose-200/90 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/30'
               }`}
-              title="Filter listings exceeding Bantay Presyo SRP ceiling"
+              aria-pressed={srpFilter === 'overpriced'} data-market-alert="true" title="Filter listings exceeding Bantay Presyo SRP ceiling"
             >
               <AlertTriangle className="h-3.5 w-3.5" />
               <span>SRP Alerts ({posts.filter(p => p.srp_check?.status === 'overpriced').length})</span>
@@ -609,7 +540,7 @@ export function AdminMarketplace() {
             {/* Sort by dropdown */}
             <div className="relative inline-flex items-center">
               <select
-                value={sortBy}
+                aria-label="Sort listings" value={sortBy}
                 onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
                 className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
               >
@@ -641,7 +572,7 @@ export function AdminMarketplace() {
         <div className="bg-white dark:bg-[#242526] rounded-2xl p-20 border border-slate-200/80 dark:border-[#393a3b] text-center">
           <div className="flex items-center justify-center gap-2.5 text-slate-500">
             <RefreshCw className="h-5 w-5 animate-spin text-[#237227]" />
-            <span className="font-semibold text-sm">Loading produce feed listings from MySQL...</span>
+            <span className="font-semibold text-sm">Loading marketplace listings…</span>
           </div>
         </div>
       ) : posts.filter(p => srpFilter === 'all' ? true : p.srp_check?.status === srpFilter).length === 0 ? (
@@ -651,13 +582,13 @@ export function AdminMarketplace() {
           <p className="text-xs text-slate-400">Try adjusting your category filter, SRP alert filter, or search keywords.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div key={JSON.stringify([searchQuery,categoryFilter,srpFilter,sortBy,currentPage,pageSize])} className="market-listings grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {posts
             .filter(p => srpFilter === 'all' ? true : p.srp_check?.status === srpFilter)
             .map((post) => (
             <div
               key={post.id}
-              className="bg-white dark:bg-[#242526] rounded-2xl border border-slate-200/80 dark:border-[#393a3b] shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-[#4e4f50] transition-all duration-200 overflow-hidden flex flex-col"
+              className="market-listing bg-white dark:bg-[#242526] rounded-2xl border border-slate-200/80 dark:border-[#393a3b] shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-[#4e4f50] transition-all duration-200 overflow-hidden flex flex-col"
             >
               {/* Image Preview with Category Badge */}
               <div 
@@ -710,7 +641,7 @@ export function AdminMarketplace() {
               </div>
 
               {/* Content Body */}
-              <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+              <div className="market-listing-body p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
                 
                 {/* Farmer identity */}
                 <div className="flex items-center gap-3">
@@ -794,52 +725,22 @@ export function AdminMarketplace() {
         </div>
       )}
 
-      {/* =========== 4. PAGINATION =========== */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 bg-white dark:bg-[#242526] rounded-2xl border border-slate-200/80 dark:border-[#393a3b] shadow-xs text-xs text-slate-500 dark:text-[#b0b3b8]">
-          <div>
-            Showing <span className="font-semibold text-slate-800 dark:text-[#e4e6eb]">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-            <span className="font-semibold text-slate-800 dark:text-[#e4e6eb]">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
-            <span className="font-semibold text-slate-800 dark:text-[#e4e6eb]">{totalCount}</span> produce listings
+        <nav className="market-pagination" aria-label="Marketplace pagination">
+          <div className="market-page-summary"><strong>{(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)}</strong><span>of {totalCount.toLocaleString()} listings</span></div>
+          <div className="market-page-controls">
+            <button type="button" className="market-page-direction" aria-label="Previous page" disabled={currentPage <= 1 || isLoading} onClick={() => { const page = currentPage - 1; setCurrentPage(page); fetchPosts(page, categoryFilter, searchQuery, sortBy, pageSize); }}><ChevronLeft size={15}/><span>Previous</span></button>
+            <div className="market-page-numbers">
+              {Array.from(new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1])).filter(page => page >= 1 && page <= totalPages).sort((a,b) => a-b).map((page,index,pages) => <React.Fragment key={page}>
+                {index > 0 && page - pages[index-1] > 1 && <span className="market-page-gap" aria-hidden="true">…</span>}
+                <button type="button" aria-label={'Page ' + page} aria-current={currentPage === page ? 'page' : undefined} disabled={isLoading} onClick={() => { if(page !== currentPage) { setCurrentPage(page); fetchPosts(page, categoryFilter, searchQuery, sortBy, pageSize); } }}>{page}</button>
+              </React.Fragment>)}
+            </div>
+            <button type="button" className="market-page-direction" aria-label="Next page" disabled={currentPage >= totalPages || isLoading} onClick={() => { const page = currentPage + 1; setCurrentPage(page); fetchPosts(page, categoryFilter, searchQuery, sortBy, pageSize); }}><span>Next</span><ChevronRight size={15}/></button>
           </div>
-
-          <div className="flex items-center gap-1.5 self-end sm:self-auto">
-            <button
-              type="button"
-              onClick={() => { const p = Math.max(1, currentPage - 1); setCurrentPage(p); fetchPosts(p, categoryFilter, searchQuery, sortBy, pageSize); }}
-              disabled={currentPage <= 1}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => { setCurrentPage(page); fetchPosts(page, categoryFilter, searchQuery, sortBy, pageSize); }}
-                className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  currentPage === page
-                    ? 'bg-[#237227] text-white shadow-xs'
-                    : 'border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-slate-700 dark:text-[#e4e6eb]'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => { const p = Math.min(totalPages, currentPage + 1); setCurrentPage(p); fetchPosts(p, categoryFilter, searchQuery, sortBy, pageSize); }}
-              disabled={currentPage >= totalPages}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
+        </nav>
       )}
-        </>
+        </div>
       )}
 
       {/* =========== MODAL: FULL POST INSPECTION =========== */}

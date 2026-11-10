@@ -1,0 +1,159 @@
+.page {
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: 28px clamp(24px, 5vw, 80px) 32px;
+  background: #f6f7f2;
+  color: #293d32;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.header {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: #657168;
+  font-size: 12px;
+  transition: color 180ms ease;
+}
+.back svg { transition: transform 180ms ease; }
+.back:hover { color: #293d32; }
+.back:hover svg { transform: translateX(-3px); }
+
+.content {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 448px);
+  align-items: center;
+  gap: clamp(48px, 7vw, 112px);
+  padding: 56px 0 80px;
+}
+
+.intro { min-width: 0; padding-bottom: 16px; }
+.quoteMark {
+  display: block;
+  height: 52px;
+  margin-bottom: 16px;
+  color: #a0ad98;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 88px;
+  line-height: 1;
+}
+.quote {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(40px, 4.2vw, 62px);
+  font-weight: 400;
+  letter-spacing: -.045em;
+  line-height: 1.17;
+}
+.quote p > * { display: block; }
+.quote em { margin-top: 6px; color: #687b5e; font-weight: 400; }
+.quoteRule { display: block; width: 48px; height: 1px; margin-top: 36px; background: #a0ad98; }
+
+.login { display: flex; justify-content: flex-end; min-width: 0; }
+.formWrap {
+  width: 100%;
+  max-width: 448px;
+  padding: 44px 40px 40px;
+  border: 1px solid #dfe4d9;
+  border-radius: 20px;
+  background: #fff;
+}
+.form > div > div:first-child { text-align: left; }
+.form > div > div:first-child > div { display: none; }
+.form h3 {
+  color: #293d32;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -.045em;
+  line-height: 1.25;
+}
+.form h3 + p { margin-top: 10px; color: #657168; font-size: 13px; line-height: 1.8; }
+.form form { margin-top: 34px; }
+.form form > div + div { margin-top: 22px; }
+.form form > div:last-of-type { flex-wrap: wrap; gap: 8px; }
+.form label { color: #43554a; font-size: 12px; font-weight: 500; }
+.form input[type=email],
+.form input[type=password],
+.form input[type=text] {
+  min-height: 52px;
+  border: 1px solid #dce2d7;
+  border-radius: 8px;
+  background: #fafbf8;
+  color: #293d32;
+  font-size: 16px;
+  font-weight: 400;
+  box-shadow: none;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+.form input::placeholder { color: #899187; }
+.form input:hover { border-color: #b3bfad; }
+.form input:focus { background: #fff; border-color: #70856c; box-shadow: 0 0 0 3px #70856c18; }
+.form input[type=checkbox] { accent-color: #405b47; }
+.form button[type=button] { min-height: 36px; color: #657168; }
+.form button[type=button]:hover { color: #314b38; }
+.form button[type=submit] {
+  min-height: 52px;
+  margin-top: 26px;
+  border-radius: 8px;
+  background: #36513f;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  box-shadow: none;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+.form button[type=submit]:hover:not(:disabled) { background: #294330; transform: translateY(-2px); box-shadow: none; }
+.form button[type=submit]:active:not(:disabled) { transform: translateY(0); }
+.form button:focus-visible,
+.form input[type=checkbox]:focus-visible,
+.page a:focus-visible { outline: 2px solid #70856c; outline-offset: 4px; }
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .quoteMark { animation: enter 650ms ease both; }
+  .quote p > span:first-child { animation: enter 700ms 80ms both; }
+  .quote p > span:nth-child(2) { animation: enter 700ms 160ms both; }
+  .quote em { animation: enter 700ms 240ms both; }
+  .quoteRule { animation: enter 700ms 320ms both; }
+  .formWrap { animation: enter 750ms 140ms both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page *, .page *::before, .page *::after { animation: none !important; transition: none !important; }
+  .page button, .page a svg { transform: none !important; }
+}
+
+@media (max-width: 960px) {
+  .content { max-width: 448px; grid-template-columns: 1fr; gap: 40px; padding: 32px 0 48px; }
+  .intro { padding-bottom: 0; }
+  .quote { font-size: clamp(36px, 6vw, 48px); }
+  .quoteMark { height: 36px; font-size: 64px; margin-bottom: 12px; }
+  .quoteRule { margin-top: 24px; }
+  .formWrap { max-width: none; }
+}
+@media (max-width: 600px) {
+  .page { padding: 16px 24px 24px; }
+  .back { font-size: 11px; }
+  .formWrap { padding: 32px 24px; border-radius: 16px; }
+  .form h3 { font-size: 30px; }
+}
+@media (max-width: 360px) {
+  .page { padding-right: 20px; padding-left: 20px; }
+  .quote { font-size: 34px; }
+  .formWrap { padding: 28px 20px; }
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, MotionConfig, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   ShieldCheck,
@@ -9,11 +9,10 @@ import {
   MessageCircle,
   MapPin,
   Sparkles,
-  LogIn,
   CheckCircle2,
-  Lock,
-  Mail,
+  Download,
 } from 'lucide-react';
+import { ScrollPhone } from '../components/ui/ScrollPhone';
 import { Navbar } from '../components/Navbar';
 import { FramerPhoneShell } from '../components/FramerPhoneShell';
 import { LandingModals, ModalType, FeatureDetailData } from '../components/LandingModals';
@@ -47,6 +46,7 @@ const staggerContainer = {
 };
 
 export default function Home() {
+  const reducedMotion = useReducedMotion();
   const [activeModal, setActiveModal] = useState<ModalType>('none');
   const [selectedFeature, setSelectedFeature] = useState<FeatureDetailData | null>(null);
 
@@ -62,17 +62,18 @@ export default function Home() {
   const scrollToMarketplace = () => {
     const el = document.getElementById('marketplace-section');
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
+      el.scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth' });
     }
   };
 
   return (
+    <MotionConfig reducedMotion="user">
     <main
       id="landing-page"
       className="min-h-screen flex flex-col bg-[#F7F7F2] text-[#303B34] selection:bg-[#303B34] selection:text-white overflow-x-hidden relative"
     >
       {/* 1. Header Navigation */}
-      <Navbar onOpenLogin={() => setActiveModal('login')} />
+      <Navbar />
 
       {/* =================================================================== */}
       {/* 2. HERO SECTION: "Good things grow together."                       */}
@@ -84,7 +85,8 @@ export default function Home() {
             <motion.div
               variants={staggerContainer}
               initial="hidden"
-              animate="visible"
+              whileInView="visible"
+              viewport={{ once: false, amount: 0.1 }}
               className="lg:col-span-6 flex flex-col items-start gap-6 max-w-[540px]"
             >
               {/* Eyebrow Pill */}
@@ -129,14 +131,6 @@ export default function Home() {
                   <ArrowRight className="h-4 w-4" />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveModal('login')}
-                  className="inline-flex items-center gap-2 px-6 py-4 rounded-full border border-[#d9e0d6] bg-white/70 text-[#303B34] text-sm font-semibold hover:bg-white hover:border-[#303B34] hover:shadow-sm transition-all duration-300 active:scale-95 cursor-pointer"
-                >
-                  <Lock className="h-3.5 w-3.5 text-[#667B6B]" />
-                  <span>Admin Console</span>
-                </button>
               </motion.div>
 
               {/* Bottom Micro-Badge */}
@@ -149,21 +143,19 @@ export default function Home() {
               </motion.p>
             </motion.div>
 
-            {/* Right Column: Floating Showcase with Architectural Arch */}
+            {/* Right Column: Floating Showcase */}
             <motion.div
               initial={{ opacity: 0, scale: 0.94, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              viewport={{ once: false, amount: 0.1 }}
               transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
               className="lg:col-span-6 relative w-full flex items-center justify-center lg:justify-end"
             >
-              {/* Architectural Dome / Arch Stage */}
-              <div className="relative w-full max-w-[480px] sm:max-w-[520px] h-[520px] sm:h-[620px] bg-[#E8EEE5] rounded-t-[200px] sm:rounded-t-[240px] rounded-b-[32px] overflow-visible flex items-center justify-center shadow-inner">
-                {/* Subtle internal gradient sheen */}
-                <div className="absolute inset-0 rounded-t-[200px] sm:rounded-t-[240px] rounded-b-[32px] bg-gradient-to-b from-white/40 via-transparent to-black/5 pointer-events-none" />
-
+              <div className="relative w-full max-w-[480px] sm:max-w-[520px] h-[520px] sm:h-[620px] overflow-visible flex items-center justify-center">
                 {/* Left Floating Phone: Hero Marketplace */}
-                <div className="absolute left-2 sm:left-6 top-16 sm:top-20 z-0">
+                <ScrollPhone travel={24} className="absolute left-2 sm:left-6 top-16 sm:top-20 z-0">
                   <FramerPhoneShell
+                    floating={false}
                     imageSrc="/images/framer/hero-marketplace.png"
                     alt="Localfarm Marketplace listing screen"
                     rotation={-8}
@@ -178,11 +170,12 @@ export default function Home() {
                       transition: { type: 'spring', bounce: 0.3, duration: 0.5 },
                     }}
                   />
-                </div>
+                </ScrollPhone>
 
                 {/* Right Floating Phone: Hero Community Feed */}
-                <div className="absolute right-2 sm:right-6 top-6 sm:top-8 z-10">
+                <ScrollPhone travel={48} className="absolute right-2 sm:right-6 top-6 sm:top-8 z-10">
                   <FramerPhoneShell
+                    floating={false}
                     imageSrc="/images/framer/hero-feed.png"
                     alt="Localfarm Community feed with produce stories"
                     rotation={6}
@@ -197,7 +190,7 @@ export default function Home() {
                       transition: { type: 'spring', bounce: 0.3, duration: 0.5 },
                     }}
                   />
-                </div>
+                </ScrollPhone>
               </div>
             </motion.div>
           </div>
@@ -223,30 +216,30 @@ export default function Home() {
       >
         <div className="max-w-[1120px] mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-12 items-center gap-12 lg:gap-16">
-            {/* Left: Sage Stage with Discovery Map Phone */}
+            {/* Left: Discovery Map Phone */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-60px' }}
+              viewport={{ once: false, amount: 0.1 }}
               transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
               className="lg:col-span-6 flex items-center justify-center"
             >
-              <div className="w-full max-w-[480px] h-[520px] sm:h-[600px] bg-[#E8EEE5] rounded-[28px] flex items-center justify-center p-6 shadow-xs relative overflow-hidden group">
-                {/* Background soft glow */}
-                <div className="absolute inset-0 bg-radial from-white/30 to-transparent pointer-events-none" />
-
-                <FramerPhoneShell
-                  imageSrc="/images/framer/marketplace-map.png"
-                  alt="Localfarm Explore Map screen with farm navigation"
-                  rotation={0}
-                  scale={1}
-                  width={270}
-                  whileHover={{
-                    scale: 1.04,
-                    y: -10,
-                    transition: { type: 'spring', bounce: 0.25, duration: 0.5 },
-                  }}
-                />
+              <div className="w-full max-w-[480px] h-[520px] sm:h-[600px] flex items-center justify-center p-6 relative overflow-hidden group">
+                <ScrollPhone travel={24} straighten>
+                  <FramerPhoneShell
+                    floating={false}
+                    imageSrc="/images/framer/community-feed-premium.png"
+                    alt="Localfarm community feed with stories and local posts"
+                    rotation={0}
+                    scale={1}
+                    width={270}
+                    whileHover={{
+                      scale: 1.04,
+                      y: -10,
+                      transition: { type: 'spring', bounce: 0.25, duration: 0.5 },
+                    }}
+                  />
+                </ScrollPhone>
               </div>
             </motion.div>
 
@@ -255,7 +248,7 @@ export default function Home() {
               variants={staggerContainer}
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: '-60px' }}
+              viewport={{ once: false, amount: 0.1 }}
               className="lg:col-span-6 flex flex-col gap-6"
             >
               {/* Eyebrow */}
@@ -315,7 +308,7 @@ export default function Home() {
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
+            viewport={{ once: false, amount: 0.1 }}
             transition={{ duration: 0.8 }}
             className="text-center max-w-[650px] mx-auto mb-14 sm:mb-16"
           >
@@ -334,14 +327,15 @@ export default function Home() {
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true, margin: '-50px' }}
+            viewport={{ once: false, amount: 0.05 }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full bg-[#E8EEE5] rounded-[32px] p-6 sm:p-12 lg:p-14 mb-12 sm:mb-16 flex items-center justify-center relative overflow-hidden shadow-xs"
+            className="w-full p-6 sm:p-12 lg:p-14 mb-12 sm:mb-16 flex items-center justify-center relative overflow-hidden"
           >
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 lg:gap-10 w-full max-w-[960px]">
               {/* Phone 1: Social Profile */}
-              <div className="transform md:-rotate-6 hover:rotate-0 transition-transform duration-500">
+              <ScrollPhone travel={22} className="transform md:-rotate-6 motion-safe:hover:rotate-0 motion-safe:transition-transform duration-500">
                 <FramerPhoneShell
+                  floating={false}
                   imageSrc="/images/framer/social-profile.png"
                   alt="Localfarm user profile screen"
                   rotation={0}
@@ -350,11 +344,12 @@ export default function Home() {
                   floatDelay={0}
                   whileHover={{ scale: 1.02, y: -8, transition: { type: 'spring', duration: 0.4 } }}
                 />
-              </div>
+              </ScrollPhone>
 
               {/* Phone 2: Social Story (Elevated Center) */}
-              <div className="z-10 transform scale-100 md:scale-105">
+              <ScrollPhone travel={38} className="z-10 transform scale-100 md:scale-105">
                 <FramerPhoneShell
+                  floating={false}
                   imageSrc="/images/framer/social-story.png"
                   alt="Localfarm live harvest stories screen"
                   rotation={0}
@@ -363,11 +358,12 @@ export default function Home() {
                   floatDelay={1.2}
                   whileHover={{ scale: 1.04, y: -8, transition: { type: 'spring', duration: 0.4 } }}
                 />
-              </div>
+              </ScrollPhone>
 
               {/* Phone 3: Social Chat */}
-              <div className="transform md:rotate-6 hover:rotate-0 transition-transform duration-500">
+              <ScrollPhone travel={28} className="transform md:rotate-6 motion-safe:hover:rotate-0 motion-safe:transition-transform duration-500">
                 <FramerPhoneShell
+                  floating={false}
                   imageSrc="/images/framer/social-chat.png"
                   alt="Localfarm direct grower chat screen"
                   rotation={0}
@@ -376,7 +372,7 @@ export default function Home() {
                   floatDelay={2.4}
                   whileHover={{ scale: 1.02, y: -8, transition: { type: 'spring', duration: 0.4 } }}
                 />
-              </div>
+              </ScrollPhone>
             </div>
           </motion.div>
 
@@ -385,7 +381,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: false }}
               transition={{ duration: 0.6, delay: 0.1 }}
               className="flex flex-col gap-2"
             >
@@ -400,7 +396,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: false }}
               transition={{ duration: 0.6, delay: 0.2 }}
               className="flex flex-col gap-2"
             >
@@ -415,7 +411,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: false }}
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-col gap-2"
             >
@@ -434,33 +430,33 @@ export default function Home() {
       {/* 5. DOWNLOAD & CLOSING CREDIT SECTION (FOREST GREEN #303B34)         */}
       {/* =================================================================== */}
       <footer className="w-full bg-[#303B34] text-white py-20 sm:py-28 px-6 sm:px-10 lg:px-16 mt-auto">
-        <div className="max-w-[1120px] mx-auto flex flex-col items-center text-center">
+        <motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: false, amount: 0.1 }} className="max-w-[1120px] mx-auto flex flex-col items-center text-center">
           {/* Eyebrow */}
-          <span className="text-xs font-bold tracking-[0.16em] text-[#8A938A] uppercase block mb-3">
+          <motion.span variants={fadeInUp} className="text-xs font-bold tracking-[0.16em] text-[#8A938A] uppercase block mb-3">
             Your next connection starts here.
-          </span>
+          </motion.span>
 
           {/* Big Headline */}
-          <h2 className="font-clash text-4xl sm:text-5xl lg:text-[56px] font-medium tracking-[-0.03em] text-white max-w-[700px] leading-[1.1]">
+          <motion.h2 variants={fadeInUp} className="font-clash text-4xl sm:text-5xl lg:text-[56px] font-medium tracking-[-0.03em] text-white max-w-[700px] leading-[1.1]">
             Your local world. One app.
-          </h2>
+          </motion.h2>
 
           {/* Subtitle */}
-          <p className="text-base sm:text-lg text-[#A3B3A6] max-w-[560px] mx-auto mt-4 leading-relaxed">
+          <motion.p variants={fadeInUp} className="text-base sm:text-lg text-[#A3B3A6] max-w-[560px] mx-auto mt-4 leading-relaxed">
             A place to grow your business, share your story, and feel more connected.
-          </p>
+          </motion.p>
 
-          {/* Action Button: Showing ONLY the Contact us button */}
-          <div className="mt-8 flex items-center justify-center">
+          {/* Open the mobile app download QR code */}
+          <motion.div variants={fadeInUp} className="mt-8 flex items-center justify-center">
             <button
               type="button"
-              onClick={() => setActiveModal('contact')}
+              onClick={openApp}
               className="inline-flex items-center gap-2.5 rounded-full bg-white hover:bg-[#F7F7F2] text-[#303B34] px-8 py-3.5 text-xs sm:text-sm font-semibold tracking-wider uppercase transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-95 cursor-pointer shadow-sm"
             >
-              <Mail className="h-4 w-4 text-[#4D6353]" />
-              <span>Contact us</span>
+              <Download className="h-4 w-4 text-[#4D6353]" />
+              <span>Get App</span>
             </button>
-          </div>
+          </motion.div>
 
           {/* Closing Credits Bar */}
           <div className="w-full mt-20 pt-8 border-t border-[#445249] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#8A938A]">
@@ -474,7 +470,7 @@ export default function Home() {
               Grown through connection. © 2026
             </div>
           </div>
-        </div>
+        </motion.div>
       </footer>
 
       {/* Administrative Modals (Login, App QR preview, Contact, Forgot Password) */}
@@ -487,5 +483,6 @@ export default function Home() {
         onOpenForgotModal={() => setActiveModal('forgot')}
       />
     </main>
+    </MotionConfig>
   );
 }

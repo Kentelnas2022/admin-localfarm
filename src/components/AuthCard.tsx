@@ -10,12 +10,13 @@ interface AuthCardProps {
   onForgotPassword?: () => void;
   inputRef?: React.RefObject<HTMLInputElement | null>;
   embedded?: boolean;
+  premium?: boolean;
 }
 
-export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embedded = false }: AuthCardProps) {
+export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embedded = false, premium = false }: AuthCardProps) {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@localfarm.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState(premium ? '' : 'admin@localfarm.com');
+  const [password, setPassword] = useState(premium ? '' : 'admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -98,16 +99,16 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embed
           </div>
         </div>
         <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-          Administrator Sign In
+          {premium ? 'Sign in' : 'Administrator Sign In'}
         </h3>
         <p className="mt-1 text-xs text-slate-500 font-normal">
-          Enter your credentials to access the Local Farm management portal
+          {premium ? 'Use your administrator account.' : 'Enter your credentials to access the Local Farm management portal'}
         </p>
       </div>
 
       {/* Error Alert Box */}
       {errorMsg && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 leading-snug">
+        <div role="alert" className="mt-4 flex items-start gap-2.5 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 leading-snug">
           <AlertCircle className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
@@ -117,7 +118,7 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embed
       <form onSubmit={handleLogin} className="mt-6 space-y-4">
         {/* Email Field */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="admin-email" className="block text-xs font-semibold text-slate-700 mb-1.5">
             Email Address
           </label>
           <div className="relative">
@@ -126,6 +127,8 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embed
             </div>
             <input
               ref={inputRef}
+              id="admin-email"
+              autoComplete="username"
               type="email"
               required
               value={email}
@@ -138,7 +141,7 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embed
 
         {/* Password Field */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          <label htmlFor="admin-password" className="block text-xs font-semibold text-slate-700 mb-1.5">
             Password
           </label>
           <div className="relative">
@@ -147,6 +150,8 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embed
             </div>
             <input
               type={showPassword ? 'text' : 'password'}
+              id="admin-password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -200,11 +205,12 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embed
               <CheckCircle className="h-4 w-4" /> Access Granted! Redirecting...
             </span>
           ) : (
-            'Sign In'
+            premium ? 'Sign in' : 'Sign In'
           )}
         </button>
       </form>
 
+      {!premium && <>
       {/* Formal Divider */}
       <div className="relative my-4 flex items-center justify-center">
         <div className="w-full border-t border-slate-200" />
@@ -258,6 +264,7 @@ export function AuthCard({ onOpenAdminPreview, onForgotPassword, inputRef, embed
           Test admin: <code className="font-mono text-[#237227] bg-slate-100 px-1.5 py-0.5 rounded">admin123</code>
         </span>
       </div>
+      </>}
     </div>
   );
 }

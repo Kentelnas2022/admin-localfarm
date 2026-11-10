@@ -248,7 +248,7 @@ export function AdminPriceWatch() {
   function TrendBadge({ trend, change }: { trend: string; change: string }) {
     if (trend === 'alert') {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 animate-pulse">
+        <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60">
           <AlertTriangle className="h-3 w-3" />
           <span>Hike {change}</span>
         </span>
@@ -256,7 +256,7 @@ export function AdminPriceWatch() {
     }
     if (trend === 'increasing') {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60">
+        <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60">
           <TrendingUp className="h-3 w-3" />
           <span>Rising {change}</span>
         </span>
@@ -264,14 +264,14 @@ export function AdminPriceWatch() {
     }
     if (trend === 'decreasing') {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">
+        <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">
           <TrendingDown className="h-3 w-3" />
           <span>Easing {change}</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#237227] dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+      <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#237227] dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
         <Minus className="h-3 w-3" />
         <span>Stable {change}</span>
       </span>
@@ -279,7 +279,7 @@ export function AdminPriceWatch() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="price-directory members-directory space-y-6">
 
       {/* Toast Alert */}
       {mounted && toast && createPortal(
@@ -297,108 +297,39 @@ export function AdminPriceWatch() {
         document.body
       )}
 
-      {/* =========== 1. KPI CARDS =========== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Total Monitored */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-[#237227]/15 text-[#237227] dark:text-emerald-400 flex items-center justify-center">
-              <BadgeDollarSign className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-[#237227] bg-[#237227]/10 border border-[#237227]/20 px-2 py-0.5 rounded-full">
-              Bantay Presyo
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-slate-900 dark:text-[#e4e6eb] tracking-tight leading-none">
-              {stats.totalCommodities}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">Monitored Crops</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Active market benchmarks</div>
-          </div>
-        </div>
-
-        {/* Stable Prices */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Scale className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 px-2 py-0.5 rounded-full">
-              Fair Trade
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-[#237227] dark:text-emerald-400 tracking-tight leading-none">
-              {stats.stableCount}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">Stable SRP Rate</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Within normal trading range</div>
-          </div>
-        </div>
-
-        {/* Price Spike Alerts */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/40 px-2 py-0.5 rounded-full animate-pulse">
-              Spike Warning
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-rose-600 dark:text-rose-400 tracking-tight leading-none">
-              {stats.alertCount}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">Price Alerts</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Surging due to rain or scarcity</div>
-          </div>
-        </div>
-
-        {/* Rising Demand */}
-        <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between min-h-[155px]">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 px-2 py-0.5 rounded-full">
-              Upward
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-[30px] font-extrabold text-amber-600 dark:text-amber-400 tracking-tight leading-none">
-              {stats.increasingCount}
-            </div>
-            <div className="text-xs font-semibold text-slate-700 dark:text-[#b0b3b8] mt-2">High Demand Items</div>
-            <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] font-normal mt-0.5">Commercial buyer interest</div>
-          </div>
-        </div>
-
+      <div className="members-metrics">
+        {[
+          {label:'Monitored crops',value:stats.totalCommodities,detail:'Active market benchmarks',icon:BadgeDollarSign},
+          {label:'Stable prices',value:stats.stableCount,detail:'Benchmarks with stable prices',icon:Scale},
+          {label:'Price alerts',value:stats.alertCount,detail:'Flagged price movements',icon:AlertTriangle},
+          {label:'Rising prices',value:stats.increasingCount,detail:'Benchmarks trending upward',icon:TrendingUp},
+        ].map(({label,value,detail,icon:Icon},index) => <article className="members-metric" key={label} style={{animationDelay:index*50+'ms'}}>
+          <div className="members-metric-heading"><span>{label}</span><span className="members-metric-icon"><Icon size={18} strokeWidth={1.7}/></span></div>
+          <strong>{value.toLocaleString()}</strong><p>{detail}</p>
+        </article>)}
       </div>
 
       {/* =========== 2. TOOLBAR =========== */}
-      <div className="bg-white dark:bg-[#242526] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="members-toolbar bg-white dark:bg-[#242526] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs space-y-4">
+        <div className="members-toolbar-layout flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           
           {/* Search bar */}
-          <div className="relative flex-1 w-full md:max-w-md">
+          <div className="members-search relative flex-1 w-full md:max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 dark:text-[#8a8d91]" />
             <input
               type="text"
-              value={searchQuery}
+              aria-label="Search price benchmarks" value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search commodity name, trading source, or notes..."
               className="w-full pl-11 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-[#3a3b3c] outline-none focus:border-[#237227] dark:focus:border-emerald-500 bg-slate-50/60 dark:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] placeholder:text-slate-400 transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+          <div className="members-controls flex items-center gap-3 w-full md:w-auto flex-wrap">
             {/* Category Filter */}
             <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#18191a] border border-slate-200 dark:border-[#3a3b3c] rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 dark:text-[#b0b3b8]">
               <select
-                value={categoryFilter}
+                aria-label="Filter commodity category" value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="bg-transparent outline-none cursor-pointer text-slate-900 dark:text-[#e4e6eb]"
               >
@@ -427,7 +358,7 @@ export function AdminPriceWatch() {
               onClick={handleBroadcastBulletin}
               disabled={isBroadcasting || commodities.length === 0}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 text-[#237227] dark:text-emerald-400 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
-              title="Broadcast current SRP Price Bulletin to all farmers via mobile announcements"
+              data-price-broadcast="true" title="Broadcast current SRP Price Bulletin to all farmers via mobile announcements"
             >
               <Megaphone className="h-3.5 w-3.5" />
               <span>{isBroadcasting ? 'Broadcasting...' : 'Broadcast Bulletin'}</span>
@@ -437,7 +368,7 @@ export function AdminPriceWatch() {
             <button
               type="button"
               onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#237227] hover:bg-[#1b5e20] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="members-add inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#237227] hover:bg-[#1b5e20] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Publish SRP</span>
@@ -448,9 +379,10 @@ export function AdminPriceWatch() {
       </div>
 
       {/* =========== 3. PRICE TABLE =========== */}
-      <div className="bg-white dark:bg-[#242526] rounded-2xl border border-slate-200/80 dark:border-[#393a3b] shadow-xs overflow-hidden">
+      <div className="members-table-panel bg-white dark:bg-[#242526] rounded-2xl border border-slate-200/80 dark:border-[#393a3b] shadow-xs overflow-hidden">
+        <div className="members-table-heading"><div><h2>Commodity prices</h2><p>Trading ranges and suggested retail prices.</p></div><span>{commodities.length} benchmarks</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
+          <table aria-label="Commodity price benchmarks" className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
             <thead className="border-b border-slate-200 dark:border-[#393a3b] text-slate-500 dark:text-[#8a8d91] font-bold uppercase text-[11px] tracking-wider bg-slate-50/60 dark:bg-[#1a1b1c]">
               <tr>
                 <th className="py-4 px-5">Commodity & Produce</th>
@@ -464,13 +396,13 @@ export function AdminPriceWatch() {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100 dark:divide-[#2f3031]">
+            <tbody key={JSON.stringify([searchQuery,categoryFilter,trendFilter,isLoading])} className={`price-results divide-y divide-slate-100 dark:divide-[#2f3031] ${isLoading ? 'is-loading' : ''}`} aria-busy={isLoading}>
               {isLoading ? (
                 <tr>
                   <td colSpan={8} className="py-20 text-center text-sm text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="h-5 w-5 animate-spin text-[#237227]" />
-                      <span>Loading agricultural benchmarks from MySQL...</span>
+                      <span>Loading price benchmarks…</span>
                     </div>
                   </td>
                 </tr>

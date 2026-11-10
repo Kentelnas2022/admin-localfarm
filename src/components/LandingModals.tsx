@@ -148,7 +148,7 @@ export function LandingModals({
                 Download Local Farm App
               </h3>
               <p className="text-xs text-[#526b55] max-w-xs mx-auto leading-relaxed">
-                Scan with your phone camera to download and install the verified mobile app.
+                Scan with your phone camera to open the mobile app download page.
               </p>
             </div>
 
@@ -165,18 +165,14 @@ export function LandingModals({
             {/* Direct Download Button */}
             <div className="space-y-2 pt-1">
               <a
-                href="#download"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('Starting verified Local Farm APK download (v2.4.0)...');
-                }}
+                href="https://localfarm.app/download"
                 className="inline-flex items-center justify-center gap-2 w-full max-w-xs rounded-full bg-[#237227] hover:bg-[#1b5e20] text-white py-3 px-6 text-xs sm:text-sm font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
               >
                 <Download className="h-4 w-4" />
-                <span>Download APK Directly</span>
+                <span>Open Download Page</span>
               </a>
               <p className="text-[11px] text-[#6a826e] font-medium">
-                Available for Android & iOS · Free Community Download
+                Already on your phone? Tap above to continue.
               </p>
             </div>
           </div>

@@ -311,7 +311,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="accreditation-directory members-directory space-y-6">
 
       {/* Toast Alert */}
       {mounted && toast && createPortal(
@@ -329,111 +329,42 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
         document.body
       )}
 
-      {/* =========== 1. KPI CARDS (CLEAN & ALIVE MINIMALISM) =========== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Total Producers */}
-        <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-farm-300 dark:hover:border-farm-800 transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-farm-50 dark:bg-farm-950/60 text-farm-700 dark:text-farm-300 flex items-center justify-center border border-farm-200/60 dark:border-farm-800/60">
-              <Award className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[10px] font-bold text-farm-800 dark:text-farm-200 bg-farm-50 dark:bg-farm-950/50 border border-farm-200 dark:border-farm-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Registered
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
-              {stats.total.toLocaleString()}
-            </div>
-            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Farmer Profiles</div>
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">Agricultural growers registered</div>
-          </div>
-        </div>
-
-        {/* Pending Review */}
-        <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-amber-300 dark:hover:border-amber-800 transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200/60 dark:border-amber-800/60">
-              <Clock className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-              Awaiting Audit
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight leading-none">
-              {stats.pending.toLocaleString()}
-            </div>
-            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Pending Accreditation</div>
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">Needs 1-click verification</div>
-          </div>
-        </div>
-
-        {/* Verified Producers */}
-        <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-farm-300 dark:hover:border-farm-800 transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-farm-50 dark:bg-farm-950/60 text-farm-700 dark:text-farm-300 flex items-center justify-center border border-farm-200/60 dark:border-farm-800/60">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[10px] font-bold text-farm-800 dark:text-farm-200 bg-farm-50 dark:bg-farm-950/50 border border-farm-200 dark:border-farm-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Accredited
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-farm-700 dark:text-farm-400 tracking-tight leading-none">
-              {stats.verified.toLocaleString()}
-            </div>
-            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Verified Producers</div>
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">PhilGAP & Organic validated</div>
-          </div>
-        </div>
-
-        {/* Rejected Applications */}
-        <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-rose-300 dark:hover:border-rose-800 transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200/60 dark:border-rose-800/60">
-              <XCircle className="h-5 w-5" />
-            </div>
-            <span className="inline-flex items-center text-[10px] font-bold text-rose-800 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Flagged
-            </span>
-          </div>
-          <div className="pt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
-              {stats.rejected.toLocaleString()}
-            </div>
-            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Rejected / Re-audit</div>
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">Incomplete farm permits</div>
-          </div>
-        </div>
-
+      <div className="members-metrics">
+        {[
+          {label:'Farmer profiles',value:stats.total,detail:'Registered agricultural growers',icon:Award},
+          {label:'Pending accreditation',value:stats.pending,detail:'Awaiting document review',icon:Clock},
+          {label:'Verified producers',value:stats.verified,detail:'Accredited farmer profiles',icon:ShieldCheck},
+          {label:'Rejected applications',value:stats.rejected,detail:'Applications requiring follow-up',icon:XCircle},
+        ].map(({label,value,detail,icon:Icon},index) => <article className="members-metric" key={label} style={{animationDelay:index*50+'ms'}}>
+          <div className="members-metric-heading"><span>{label}</span><span className="members-metric-icon"><Icon size={18} strokeWidth={1.7}/></span></div>
+          <strong>{value.toLocaleString()}</strong><p>{detail}</p>
+        </article>)}
       </div>
 
       {/* =========== 2. SEARCH & FILTER TOOLBAR (CLEAN, FUNCTIONAL) =========== */}
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
+      <div className="members-toolbar bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+        <div className="members-toolbar-layout flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
           
           {/* Search bar */}
-          <div className="relative flex-1 w-full sm:max-w-md">
+          <div className="members-search relative flex-1 w-full sm:max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
+              aria-label="Search farmer accreditations"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder="Search farmer name, farm, crops, location, or code..."
               className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-[#131614] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 transition-all"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+              <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
 
           {/* Controls: Segmented Status Filter + Actions */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="members-controls flex items-center gap-2 flex-wrap sm:flex-nowrap">
             {/* Status Dropdown */}
             <div className="relative inline-flex items-center">
               <select
@@ -478,7 +409,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
             <button
               type="button"
               onClick={() => setIsAddFarmerOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+              className="members-add inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Register Farmer</span>
@@ -490,38 +421,38 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
 
       {/* =========== 3. ACCREDITATION DOSSIER TABLE (CLEAN, COMFORTABLE & ALIVE) =========== */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 text-white dark:bg-slate-800 shadow-xl border border-slate-700 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-farm-600 text-white font-bold text-xs">
+        <div className="accreditation-selection" role="region" aria-label="Selected farmer actions">
+          <div className="selection-summary">
+            <span className="selection-count">
               {selectedIds.size}
             </span>
-            <span className="text-xs font-semibold">
+            <span className="selection-description">
               {selectedIds.size} {selectedIds.size === 1 ? 'farmer profile' : 'farmer profiles'} selected
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="selection-actions">
             <button
               type="button"
               disabled={isBulkActionLoading}
               onClick={() => handleBulkAction('verify')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              className="selection-verify"
             >
               <CheckCircle className="h-3.5 w-3.5" />
-              <span>Verify Selected ({selectedIds.size})</span>
+              <span>Verify selected</span>
             </button>
             <button
               type="button"
               disabled={isBulkActionLoading}
               onClick={() => handleBulkAction('reject')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              className="selection-reject"
             >
               <XCircle className="h-3.5 w-3.5" />
-              <span>Reject Selected ({selectedIds.size})</span>
+              <span>Reject selected</span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedIds(new Set())}
-              className="text-xs text-slate-300 hover:text-white px-2 py-1 cursor-pointer"
+              className="selection-clear"
             >
               Clear
             </button>
@@ -529,9 +460,10 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
         </div>
       )}
 
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="members-table-panel bg-white dark:bg-[#1a1e1b] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="members-table-heading"><div><h2>Farmer accreditation</h2><p>Review farmer profiles and accreditation status.</p></div><span>{totalCount.toLocaleString()} profiles</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
+          <table aria-label="Farmer accreditation directory" className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
             <thead className="border-b border-slate-200/90 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase text-[11px] tracking-wider bg-slate-50/80 dark:bg-[#141715]">
               <tr>
                 <th className="py-3.5 px-4 w-10 text-center">
@@ -554,7 +486,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+            <tbody key={JSON.stringify([searchQuery, statusFilter, currentPage, pageSize, isLoading])} className={`accreditation-results divide-y divide-slate-100 dark:divide-slate-800/80 ${isLoading ? 'is-loading' : ''}`} aria-busy={isLoading}>
               {isLoading ? (
                 <tr>
                   <td colSpan={9} className="py-20 text-center text-xs text-slate-400">
@@ -696,7 +628,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                         {isPending && (
                           <div>
                             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                               Pending
                             </span>
                             <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1">
@@ -790,7 +722,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
         </div>
 
         {/* =========== 4. PAGINATION (CLEAN & COMFORTABLE) =========== */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#1a1e1b]">
+        <div className="members-pagination flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#1a1e1b]">
           <div className="flex items-center gap-3 flex-wrap">
             <div>
               Showing <span className="font-bold text-slate-900 dark:text-white">{totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}

@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
   const [verificationFilterKey, setVerificationFilterKey] = useState<number>(0);
   const [moderationFilterKey, setModerationFilterKey] = useState<number>(0);
   const mainContentRef = useRef<HTMLElement | null>(null);
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [verificationFilterPreset, setVerificationFilterPreset] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
   const [moderationFilterPreset, setModerationFilterPreset] = useState<string>('all');
@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchUser, setSearchUser] = useState('');
   const [actionNotice, setActionNotice] = useState('');
-  const [currentDateFormatted, setCurrentDateFormatted] = useState('Wednesday, July, 29 ,2026');
+  const [currentDateFormatted, setCurrentDateFormatted] = useState('');
 
   // Sorting & Pagination & Edit/Create Modal State
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<UserDetail | null>(null);
@@ -249,13 +249,13 @@ export default function AdminDashboardPage() {
     const month = today.toLocaleDateString('en-US', { month: 'long' });
     const day = today.getDate();
     const year = today.getFullYear();
-    setCurrentDateFormatted(`${weekday}, ${month}, ${day} ,${year}`);
+    setCurrentDateFormatted(`${weekday}, ${month} ${day}, ${year}`);
 
     async function checkAuth() {
       try {
         const res = await fetch('/api/auth/me');
         if (!res.ok) {
-          router.push('/');
+          router.replace('/admin/login');
           return;
         }
         const data = await res.json();
@@ -292,7 +292,7 @@ export default function AdminDashboardPage() {
           }
         }
       } catch {
-        router.push('/');
+        router.replace('/admin/login');
       } finally {
         setIsLoading(false);
       }
@@ -311,7 +311,7 @@ export default function AdminDashboardPage() {
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/');
+    router.replace('/admin/login');
   }
 
   async function handleDeleteUser(id: number, name: string) {
@@ -530,7 +530,7 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col md:flex-row bg-[#f8f9fa] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans overflow-hidden">
+    <div className="admin-workspace h-screen flex flex-col md:flex-row bg-[#f8f9fa] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans overflow-hidden">
       
       {/* 1. LEFT SIDEBAR (Fixed height, perfectly stationary position across all tabs) */}
       <AdminSidebar
@@ -572,7 +572,7 @@ export default function AdminDashboardPage() {
                 : activeTab === 'marketplace'
                 ? 'Marketplace Feed Manager'
                 : activeTab === 'users'
-                ? 'Users Directory'
+                ? 'Community Members'
                 : activeTab === 'reports'
                 ? 'Moderation'
                 : activeTab === 'announcements'
@@ -772,102 +772,37 @@ export default function AdminDashboardPage() {
             <AdminEmergencyDispatcher />
           )}
 
-          {/* USERS DIRECTORY TAB (UNIFORM MINIMALISM - CLEAN, COMFORTABLE & ALIVE) */}
-          {/* STRICT ACCESS: ONLY SUPER ADMINISTRATOR CAN ACCESS THE USER DIRECTORY */}
+          {/* Community members directory */}
           {activeTab === 'users' && (
             isSuperAdmin ? (
-              <div className="space-y-6">
+              <div className="members-directory space-y-6">
+                <div className="members-metrics">
+                  {[
+                    {label:'Community members', value:userStats.total, detail:'Registered farmers & buyers', icon:Users},
+                    {label:'Active accounts', value:userStats.active, detail:'Full community access', icon:ShieldCheck},
+                    {label:'Pending review', value:userStats.pending, detail:'Awaiting credential checks', icon:Clock},
+                    {label:'Restricted accounts', value:userStats.suspended, detail:'Suspended or restricted', icon:AlertCircle},
+                  ].map(({label,value,detail,icon:Icon},index) => (
+                    <article className="members-metric" key={label} style={{animationDelay:index*50+'ms'}}>
+                      <div className="members-metric-heading"><span>{label}</span><span className="members-metric-icon"><Icon size={18} strokeWidth={1.7}/></span></div>
+                      <strong>{value.toLocaleString()}</strong>
+                      <p>{detail}</p>
+                    </article>
+                  ))}
+                </div>
 
-              {/* =========== 1. TOP KPI METRIC CARDS =========== */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
                 
-                {/* Total Users */}
-                <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-farm-300 dark:hover:border-farm-800 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="h-10 w-10 rounded-xl bg-farm-50 dark:bg-farm-950/60 text-farm-700 dark:text-farm-300 flex items-center justify-center border border-farm-200/60 dark:border-farm-800/60">
-                      <Users className="h-5 w-5" />
-                    </div>
-                    <span className="inline-flex items-center text-[10px] font-bold text-farm-800 dark:text-farm-200 bg-farm-50 dark:bg-farm-950/50 border border-farm-200 dark:border-farm-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      Directory
-                    </span>
-                  </div>
-                  <div className="pt-3">
-                    <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
-                      {userStats.total.toLocaleString()}
-                    </div>
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Total Community</div>
-                    <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">Registered farmers & buyers</div>
-                  </div>
-                </div>
-
-                {/* Active Accounts */}
-                <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-farm-300 dark:hover:border-farm-800 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="h-10 w-10 rounded-xl bg-farm-50 dark:bg-farm-950/60 text-farm-700 dark:text-farm-300 flex items-center justify-center border border-farm-200/60 dark:border-farm-800/60">
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
-                    <span className="inline-flex items-center text-[10px] font-bold text-farm-800 dark:text-farm-200 bg-farm-50 dark:bg-farm-950/50 border border-farm-200 dark:border-farm-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      Active
-                    </span>
-                  </div>
-                  <div className="pt-3">
-                    <div className="text-2xl sm:text-3xl font-extrabold text-farm-700 dark:text-farm-400 tracking-tight leading-none">
-                      {userStats.active.toLocaleString()}
-                    </div>
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Active Accounts</div>
-                    <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">Full marketplace & app access</div>
-                  </div>
-                </div>
-
-                {/* Pending Verification */}
-                <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-amber-300 dark:hover:border-amber-800 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200/60 dark:border-amber-800/60">
-                      <Clock className="h-5 w-5" />
-                    </div>
-                    <span className="inline-flex items-center text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      In Review
-                    </span>
-                  </div>
-                  <div className="pt-3">
-                    <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 tracking-tight leading-none">
-                      {userStats.pending.toLocaleString()}
-                    </div>
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Pending Review</div>
-                    <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">Awaiting credential check</div>
-                  </div>
-                </div>
-
-                {/* Suspended Accounts */}
-                <div className="bg-white dark:bg-[#242526] rounded-2xl p-5 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs flex flex-col justify-between min-h-[145px] hover:border-rose-300 dark:hover:border-rose-800 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="h-10 w-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200/60 dark:border-rose-800/60">
-                      <AlertCircle className="h-5 w-5" />
-                    </div>
-                    <span className="inline-flex items-center text-[10px] font-bold text-rose-800 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      Flagged
-                    </span>
-                  </div>
-                  <div className="pt-3">
-                    <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
-                      {userStats.suspended.toLocaleString()}
-                    </div>
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">Suspended / Restricted</div>
-                    <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">Policy violations or frozen</div>
-                  </div>
-                </div>
-
-              </div>
-
               {/* =========== 2. SEARCH & FILTER TOOLBAR =========== */}
-              <div className="bg-white dark:bg-[#242526] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
+              <div className="members-toolbar bg-white dark:bg-[#242526] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs">
+                <div className="members-toolbar-layout flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
                   
                   {/* Search bar */}
-                  <div className="relative flex-1 w-full sm:max-w-md">
+                  <div className="members-search relative flex-1 w-full sm:max-w-md">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
                       type="text"
+                      aria-label="Search community members"
                       value={searchUser}
                       onChange={(e) => {
                         setSearchUser(e.target.value);
@@ -888,7 +823,7 @@ export default function AdminDashboardPage() {
                   </div>
 
                   {/* Controls: Segmented Status Filter + Sort + Actions */}
-                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="members-controls flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     
                     {/* Status Dropdown */}
                     <div className="relative inline-flex items-center">
@@ -971,7 +906,7 @@ export default function AdminDashboardPage() {
                         setCreateUserError('');
                         setIsCreateUserModalOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+                      className="members-add inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       <span>Add User</span>
@@ -982,9 +917,12 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* =========== 3. USERS DIRECTORY TABLE (COMFORTABLE, CLEAN & MINIMAL) =========== */}
-              <div className="bg-white dark:bg-[#242526] rounded-3xl border border-slate-200/90 dark:border-[#393a3b] shadow-sm overflow-hidden">
+              <div className="members-table-panel bg-white dark:bg-[#242526] rounded-3xl border border-slate-200/90 dark:border-[#393a3b] shadow-sm overflow-hidden">
+                <div className="members-table-heading"><div><h2>Community members</h2><p>A shared space for your farmers, buyers, and team.</p></div><span>{sortedUsers.length.toLocaleString()} members</span></div>
+              
+                
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
+                  <table aria-label="Community members directory" className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
                     <thead className="border-b border-slate-200/80 dark:border-[#2e2f30] text-slate-400 dark:text-slate-500 font-semibold uppercase text-[11px] tracking-wider bg-slate-50/60 dark:bg-[#1f2021]/60">
                       <tr>
                         <th 
@@ -1005,7 +943,7 @@ export default function AdminDashboardPage() {
                           className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
                         >
                           <div className="flex items-center gap-1.5">
-                            <span>User & Contact</span>
+                            <span>Member</span>
                             {sortColumn === 'full_name' ? (
                               sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" /> : <ArrowDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
                             ) : (
@@ -1071,7 +1009,7 @@ export default function AdminDashboardPage() {
                         <th className="py-3 px-5 text-right font-semibold">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#2e2f30]">
+                    <tbody key={JSON.stringify([searchUser, userRoleFilter, userStatusFilter, sortColumn, sortDirection, safeCurrentPage, pageSize])} className="members-results divide-y divide-slate-100 dark:divide-[#2e2f30]">
                       {paginatedUsers.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="py-16 text-center text-xs text-slate-400 dark:text-slate-500">
@@ -1125,6 +1063,7 @@ export default function AdminDashboardPage() {
                                   @{u.username || '—'}
                                 </span>
                               </td>
+                              <td className="py-3.5 px-5 whitespace-nowrap"><span className="member-role">{(u.role || 'user').replace(/_/g, ' ')}</span></td>
                               <td className="py-3.5 px-5 whitespace-nowrap">
                                 {isActive && (
                                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-farm-50/70 dark:bg-farm-950/40 text-farm-700 dark:text-farm-400 border border-farm-200/60 dark:border-farm-800/40">
@@ -1134,7 +1073,7 @@ export default function AdminDashboardPage() {
                                 )}
                                 {isPending && (
                                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50/70 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/40">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                                     Pending
                                   </span>
                                 )}
@@ -1180,7 +1119,7 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* =========== 4. PAGINATION (CLEAN & COMFORTABLE) =========== */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-100 dark:border-[#2e2f30] text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#242526]">
+                <div className="members-pagination flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-100 dark:border-[#2e2f30] text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#242526]">
                   <div className="flex items-center gap-3 flex-wrap">
                     <div>
                       Showing <span className="font-semibold text-slate-800 dark:text-slate-200">{sortedUsers.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}</span> to{' '}
