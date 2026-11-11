@@ -213,13 +213,30 @@ export default function AdminDashboardPage() {
     };
   }, [isNotifOpen]);
 
-  // Periodic polling every 30s to keep live queues automatically refreshed
+  // Real-time automatic polling to keep analytics continuously synchronized with MySQL in real time
   useEffect(() => {
+    // When viewing the dashboard, poll every 4 seconds for immediate real-time updates
+    const pollInterval = activeTab === 'dashboard' ? 4000 : 15000;
     const timer = setInterval(() => {
       refreshActionQueue(true);
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [refreshActionQueue]);
+    }, pollInterval);
+
+    // Immediately sync when the window is focused or tab becomes visible
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refreshActionQueue(true);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [refreshActionQueue, activeTab]);
 
   // Track previous count for audio alert & document title sync
   const prevQueueTotalRef = useRef<number | null>(null);

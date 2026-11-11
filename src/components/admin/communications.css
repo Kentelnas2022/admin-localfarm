@@ -11,13 +11,13 @@
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .dark .admin-communications {
-  --com-bg: #191f1b;
-  --com-surface: #232b25;
-  --com-ink: #e5ece3;
-  --com-muted: #a1afa3;
-  --com-line: #364238;
-  --com-soft: #2d3a30;
-  --com-accent: #9fc5ac;
+  --com-bg: #0E0F11;
+  --com-surface: #1C1D20;
+  --com-ink: #F5F5F5;
+  --com-muted: #A1A1AA;
+  --com-line: #303136;
+  --com-soft: #151618;
+  --com-accent: #2D5A46;
 }
 .admin-communications.admin-communications .bg-white { background-color: var(--com-surface); }
 .admin-communications.admin-communications.bg-white { background-color: var(--com-surface); }

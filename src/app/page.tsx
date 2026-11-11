@@ -89,15 +89,6 @@ export default function Home() {
               viewport={{ once: false, amount: 0.1 }}
               className="lg:col-span-6 flex flex-col items-start gap-6 max-w-[540px]"
             >
-              {/* Eyebrow Pill */}
-              <motion.div variants={fadeInUp} custom={0}>
-                <span className="inline-flex items-center gap-2 text-[11px] font-bold tracking-[0.16em] text-[#667B6B] uppercase">
-                  <span>Your community.</span>
-                  <span className="text-[#8A938A]">·</span>
-                  <span>A little closer.</span>
-                </span>
-              </motion.div>
-
               {/* Display Headline */}
               <motion.h1
                 variants={fadeInUp}
@@ -224,7 +215,7 @@ export default function Home() {
               transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
               className="lg:col-span-6 flex items-center justify-center"
             >
-              <div className="w-full max-w-[480px] h-[520px] sm:h-[600px] flex items-center justify-center p-6 relative overflow-hidden group">
+              <div className="w-full max-w-[480px] min-h-[620px] sm:min-h-[660px] flex items-center justify-center py-6 px-4 relative overflow-visible group">
                 <ScrollPhone travel={24} straighten>
                   <FramerPhoneShell
                     floating={false}
@@ -329,7 +320,7 @@ export default function Home() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: false, amount: 0.05 }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full p-6 sm:p-12 lg:p-14 mb-12 sm:mb-16 flex items-center justify-center relative overflow-hidden"
+            className="w-full p-4 sm:p-12 lg:p-14 mb-12 sm:mb-16 flex items-center justify-center relative overflow-visible"
           >
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 lg:gap-10 w-full max-w-[960px]">
               {/* Phone 1: Social Profile */}

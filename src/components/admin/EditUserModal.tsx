@@ -250,17 +250,17 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
   return createPortal(
     <div 
       onClick={onClose}
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm overflow-y-auto animate-fade-in"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
     >
       <div 
-        className="bg-white dark:bg-[#242526] w-full max-w-[660px] rounded-3xl shadow-2xl border border-slate-100/80 dark:border-[#393a3b] overflow-hidden flex flex-col my-auto max-h-[92vh] animate-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-[#1C1D20] w-full max-w-[700px] rounded-3xl shadow-2xl border border-slate-200/80 dark:border-[#303136] overflow-hidden flex flex-col my-auto max-h-[92vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Header */}
-        <div className="px-8 py-6 border-b border-slate-100 dark:border-[#393a3b] flex items-center justify-between shrink-0 bg-white dark:bg-[#242526]">
-          <div className="flex items-center gap-4">
+        <div className="px-7 py-5 border-b border-slate-100 dark:border-[#303136] flex items-center justify-between shrink-0 bg-white dark:bg-[#1C1D20]">
+          <div className="flex items-center gap-3.5">
             {/* Circular avatar */}
-            <div className="w-14 h-14 aspect-square rounded-full overflow-hidden bg-[#237227]/10 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400 flex items-center justify-center font-bold text-xl border-2 border-[#237227]/25 shadow-xs shrink-0">
+            <div className="w-12 h-12 aspect-square rounded-full overflow-hidden bg-slate-100 dark:bg-[#151618] text-slate-700 dark:text-[#F5F5F5] flex items-center justify-center font-bold text-lg border border-slate-200/80 dark:border-[#303136] shadow-xs shrink-0">
               {formData.avatar_url ? (
                 <img 
                   src={formData.avatar_url} 
@@ -276,28 +276,28 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
             </div>
 
             <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-[#e4e6eb] tracking-tight leading-snug">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-[#F5F5F5] tracking-tight">
                   {user.full_name || user.username || user.email}
                 </h3>
-                <span className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-[#3a3b3c] text-slate-600 dark:text-[#b0b3b8]">
+                <span className="font-mono text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#151618] text-slate-500 dark:text-[#A1A1AA] border border-slate-200/60 dark:border-[#303136]">
                   #{user.id}
                 </span>
-                <span className={`text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider ${
+                <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                   user.role === 'admin' || user.role === 'super_admin'
-                    ? 'bg-[#237227]/15 dark:bg-[#237227]/30 text-[#237227] dark:text-emerald-400 border border-[#237227]/30' 
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-[#86A994] border border-emerald-500/20 dark:border-[#86A994]/30' 
                     : user.role === 'inspector'
-                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200'
+                    ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40'
                     : user.role === 'moderator'
-                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200'
+                    ? 'bg-blue-100/70 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40'
                     : user.role === 'dispatcher'
-                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200'
-                    : 'bg-slate-100 dark:bg-[#3a3b3c] text-slate-600 dark:text-[#b0b3b8] border border-slate-200/60 dark:border-transparent'
+                    ? 'bg-rose-100/70 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40'
+                    : 'bg-slate-100 dark:bg-[#151618] text-slate-600 dark:text-[#A1A1AA] border border-slate-200/60 dark:border-[#303136]'
                 }`}>
                   {user.role === 'super_admin' ? 'SUPER ADMIN' : user.role === 'inspector' ? 'INSPECTOR' : user.role === 'moderator' ? 'MODERATOR' : user.role === 'dispatcher' ? 'DISPATCHER' : user.role === 'admin' ? 'ADMIN' : 'FARMER'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 dark:text-[#8a8d91] mt-1 font-normal">
+              <p className="text-xs text-slate-400 dark:text-[#71717A] mt-0.5 font-normal">
                 Manage user profile, credentials, direct advisories & peer connections
               </p>
             </div>
@@ -305,7 +305,7 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-slate-50 dark:bg-[#3a3b3c] hover:bg-slate-100 dark:hover:bg-[#4e4f50] text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center transition-all cursor-pointer"
+            className="w-8 h-8 rounded-full bg-transparent hover:bg-slate-100 dark:hover:bg-[#242529] text-slate-400 hover:text-slate-700 dark:hover:text-[#F5F5F5] flex items-center justify-center transition-colors cursor-pointer"
             title="Close"
           >
             <X className="h-4 w-4" />
@@ -313,15 +313,15 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
         </div>
 
         {/* Tab Navigation Segmented Control */}
-        <div className="px-8 py-3.5 bg-slate-50/60 dark:bg-[#18191a] border-b border-slate-100 dark:border-[#393a3b] flex items-center justify-between shrink-0 flex-wrap gap-2">
-          <div className="flex items-center p-1 bg-slate-200/60 dark:bg-[#242526] rounded-xl gap-1">
+        <div className="px-7 py-3 bg-slate-50/70 dark:bg-[#151618] border-b border-slate-100 dark:border-[#303136] flex items-center justify-between shrink-0 flex-wrap gap-2">
+          <div className="flex items-center p-1 bg-slate-200/50 dark:bg-[#131416] rounded-xl border border-transparent dark:border-[#303136] gap-1">
             <button
               type="button"
               onClick={() => setActiveSubTab('profile')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 activeSubTab === 'profile'
-                  ? 'bg-white dark:bg-[#3a3b3c] text-slate-900 dark:text-[#e4e6eb] shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-medium'
+                  ? 'bg-white dark:bg-[#242529] text-slate-900 dark:text-[#F5F5F5] shadow-xs'
+                  : 'text-slate-500 dark:text-[#71717A] hover:text-slate-800 dark:hover:text-[#A1A1AA]'
               }`}
             >
               Account Details
@@ -329,10 +329,10 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
             <button
               type="button"
               onClick={() => setActiveSubTab('outreach')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === 'outreach'
-                  ? 'bg-white dark:bg-[#3a3b3c] text-[#237227] dark:text-emerald-400 shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-medium'
+                  ? 'bg-white dark:bg-[#242529] text-emerald-700 dark:text-[#86A994] shadow-xs'
+                  : 'text-slate-500 dark:text-[#71717A] hover:text-slate-800 dark:hover:text-[#A1A1AA]'
               }`}
             >
               <Bell className="h-3.5 w-3.5" />
@@ -341,27 +341,27 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
             <button
               type="button"
               onClick={() => setActiveSubTab('stats')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 activeSubTab === 'stats'
-                  ? 'bg-white dark:bg-[#3a3b3c] text-slate-900 dark:text-[#e4e6eb] shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-medium'
+                  ? 'bg-white dark:bg-[#242529] text-slate-900 dark:text-[#F5F5F5] shadow-xs'
+                  : 'text-slate-500 dark:text-[#71717A] hover:text-slate-800 dark:hover:text-[#A1A1AA]'
               }`}
             >
               Activity & Metrics
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-[#8a8d91] font-medium">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-[#71717A] font-normal">
             <Calendar className="h-3.5 w-3.5" />
             <span>Member since {formattedJoinedDate}</span>
           </div>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-8 overflow-y-auto space-y-6 text-xs bg-white dark:bg-[#242526]">
+        <div className="p-7 overflow-y-auto space-y-6 text-xs bg-white dark:bg-[#1C1D20]">
           {errorMessage && (
-            <div className="flex items-center gap-2.5 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 font-medium">
-              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 font-medium">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -372,102 +372,102 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
               {/* Profile Details Grid */}
               <div className="space-y-4">
                 {/* Row 1: First Name & Last Name */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       First Name
                     </label>
                     <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-[#71717A]" />
                       <input
                         type="text"
                         value={formData.first_name || ''}
                         onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                        placeholder="e.g. Maria"
-                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all"
+                        placeholder="e.g. Arthur"
+                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none transition-all"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       Last Name
                     </label>
                     <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-[#71717A]" />
                       <input
                         type="text"
                         value={formData.last_name || ''}
                         onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                        placeholder="e.g. Santos"
-                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all"
+                        placeholder="e.g. Sterling"
+                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none transition-all"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Row 2: Email Address & Username */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       Email Address <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-[#71717A]" />
                       <input
                         type="email"
                         required
                         value={formData.email || ''}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="user@example.com"
-                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all"
+                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none transition-all"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       Username
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">@</span>
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400 dark:text-[#71717A]">@</span>
                       <input
                         type="text"
                         value={formData.username || ''}
                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                         placeholder="username"
-                        className="w-full pl-9 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all"
+                        className="w-full pl-9 pr-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none transition-all"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Row 3: Phone Number & Gender */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       Phone Number
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-[#71717A]" />
                       <input
                         type="tel"
                         value={formData.phone_number || ''}
                         onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                        placeholder="0915..."
-                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all"
+                        placeholder="+63 912 345 6789"
+                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none transition-all"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       Gender
                     </label>
                     <select
                       value={formData.gender || ''}
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      className="w-full px-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all cursor-pointer"
+                      className="w-full px-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] outline-none transition-all cursor-pointer"
                     >
                       <option value="">Not Specified</option>
                       <option value="Male">Male</option>
@@ -478,18 +478,18 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                   </div>
                 </div>
 
-                {/* Row 4: Account Role, Account Status & Profile Photo URL */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                {/* Row 4: Account Role & Account Status (Proper 2-Column Alignment) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       Account Role & Privileges
                     </label>
                     <div className="relative">
-                      <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-[#71717A]" />
                       <select
                         value={formData.role || 'user'}
                         onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all cursor-pointer font-medium"
+                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] outline-none transition-all cursor-pointer font-medium"
                       >
                         <option value="user">User (Farmer / Buyer)</option>
                         <option value="super_admin">Super Administrator (Full System Authority)</option>
@@ -499,90 +499,93 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                         <option value="admin">Legacy Administrator (Super Admin)</option>
                       </select>
                     </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-tight">
-                      {(formData.role === 'super_admin' || formData.role === 'admin') && (
-                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                          👑 Super Admin: Has full access to User Directory, System Settings, and all features.
-                        </span>
-                      )}
-                      {formData.role === 'inspector' && (
-                        <span className="text-amber-700 dark:text-amber-400 font-semibold">
-                          🌾 Inspector: Accreditation & Bantay Presyo access only. User Directory is restricted.
-                        </span>
-                      )}
-                      {formData.role === 'moderator' && (
-                        <span className="text-blue-700 dark:text-blue-400 font-semibold">
-                          🛡️ Moderator: Moderation, Marketplace & Stories only. User Directory is restricted.
-                        </span>
-                      )}
-                      {formData.role === 'dispatcher' && (
-                        <span className="text-rose-700 dark:text-rose-400 font-semibold">
-                          🚨 Dispatcher: Disaster Alerts & Announcements only. User Directory is restricted.
-                        </span>
-                      )}
-                      {formData.role === 'user' && (
-                        <span className="text-slate-400">
-                          Mobile app account. Cannot log into this admin management portal.
-                        </span>
-                      )}
-                    </p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
                       Account Status
                     </label>
                     <select
                       value={formData.status || 'active'}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'suspended' | 'pending' })}
-                      className="w-full px-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all cursor-pointer font-semibold"
+                      className="w-full px-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] outline-none transition-all cursor-pointer font-medium"
                     >
                       <option value="active">Active (Good Standing)</option>
                       <option value="suspended">Suspended (Restricted)</option>
                       <option value="pending">Pending Review</option>
                     </select>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Profile Photo URL
-                    </label>
-                    <div className="relative flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <ImageIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                          type="text"
-                          value={formData.avatar_url || ''}
-                          onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
-                          placeholder="https://... or data:image..."
-                          className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/40 dark:bg-[#18191a] hover:bg-slate-50 dark:hover:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all truncate"
-                        />
-                      </div>
-                      {formData.avatar_url && (
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, avatar_url: '' })}
-                          className="px-3 h-11 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-white dark:bg-[#18191a] hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 text-xs font-medium shrink-0 transition-colors cursor-pointer"
-                          title="Clear avatar"
-                        >
-                          Clear
-                        </button>
-                      )}
+                {/* Role Description Note */}
+                <div className="text-[11px] text-slate-400 dark:text-[#71717A] leading-normal px-1">
+                  {(formData.role === 'super_admin' || formData.role === 'admin') && (
+                    <span className="text-emerald-700 dark:text-[#86A994] font-medium">
+                      👑 Super Admin: Has full authority over user management, verification, settings, and audits.
+                    </span>
+                  )}
+                  {formData.role === 'inspector' && (
+                    <span className="text-amber-700 dark:text-amber-400 font-medium">
+                      🌾 Inspector: Authorized for accreditation reviews and Bantay Presyo SRP indices.
+                    </span>
+                  )}
+                  {formData.role === 'moderator' && (
+                    <span className="text-blue-700 dark:text-blue-400 font-medium">
+                      🛡️ Moderator: Manages safety queues, community content, and marketplace reports.
+                    </span>
+                  )}
+                  {formData.role === 'dispatcher' && (
+                    <span className="text-rose-700 dark:text-rose-400 font-medium">
+                      🚨 Dispatcher: Broadcasts municipal disaster advisories and weather warnings.
+                    </span>
+                  )}
+                  {formData.role === 'user' && (
+                    <span>
+                      Standard mobile app account for farmers and local buyers.
+                    </span>
+                  )}
+                </div>
+
+                {/* Row 5: Profile Photo URL */}
+                <div className="pt-1">
+                  <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#A1A1AA] mb-1.5">
+                    Profile Photo URL
+                  </label>
+                  <div className="relative flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <ImageIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-[#71717A]" />
+                      <input
+                        type="text"
+                        value={formData.avatar_url || ''}
+                        onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
+                        placeholder="https://... or photo URL"
+                        className="w-full pl-10 pr-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-slate-50/50 dark:bg-[#151618] hover:border-slate-300 dark:hover:border-[#44464B] focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none transition-all truncate"
+                      />
                     </div>
+                    {formData.avatar_url && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, avatar_url: '' })}
+                        className="px-3.5 h-11 rounded-xl border border-slate-200 dark:border-[#303136] bg-white dark:bg-[#151618] hover:bg-slate-50 dark:hover:bg-[#242529] text-slate-500 dark:text-[#A1A1AA] hover:text-rose-600 dark:hover:text-rose-400 text-xs font-medium shrink-0 transition-colors cursor-pointer"
+                        title="Clear photo"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Security & Password Modification Card */}
-              <div className="p-5 rounded-2xl bg-slate-50/80 dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] space-y-3.5">
+              <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-[#151618] border border-slate-200/70 dark:border-[#303136] space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-[#237227]/15 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                      <Lock className="h-4 w-4" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-slate-200/60 dark:bg-[#242529] text-slate-600 dark:text-[#A1A1AA] flex items-center justify-center shrink-0">
+                      <Lock className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb] leading-tight">Change Password</h4>
-                      <p className="text-[11px] text-slate-400 dark:text-[#8a8d91] mt-0.5">
+                      <h4 className="text-xs font-semibold text-slate-900 dark:text-[#F5F5F5] leading-tight">Change Password</h4>
+                      <p className="text-[11px] text-slate-400 dark:text-[#71717A] mt-0.5">
                         Leave blank to keep existing password unchanged
                       </p>
                     </div>
@@ -591,33 +594,33 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                   <button
                     type="button"
                     onClick={generateRandomPassword}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] hover:border-slate-300 dark:hover:border-slate-500 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-2xs transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-[#1C1D20] border border-slate-200 dark:border-[#303136] hover:border-slate-300 dark:hover:border-[#44464B] text-[11px] font-medium text-slate-600 dark:text-[#A1A1AA] hover:text-slate-900 dark:hover:text-[#F5F5F5] transition-all cursor-pointer"
                   >
-                    <Sparkles className="h-3 w-3 text-[#237227] dark:text-emerald-400" />
+                    <Sparkles className="h-3 w-3 text-emerald-600 dark:text-[#86A994]" />
                     <span>Generate</span>
                   </button>
                 </div>
 
                 <div className="relative">
-                  <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-[#71717A]" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password (min. 6 characters)"
-                    className="w-full pl-10 pr-11 h-11 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-white dark:bg-[#242526] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] focus:ring-4 focus:ring-[#237227]/15 transition-all font-mono"
+                    className="w-full pl-10 pr-11 h-10 rounded-xl border border-slate-200 dark:border-[#303136] bg-white dark:bg-[#1C1D20] text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none focus:border-emerald-600 dark:focus:border-[#86A994] focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-[#86A994]/15 transition-all font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-[#F5F5F5] p-1 cursor-pointer"
                     title={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
                 </div>
                 {newPassword && (
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-medium pt-0.5">
+                  <p className="text-[11px] text-emerald-600 dark:text-[#86A994] flex items-center gap-1.5 font-medium pt-0.5">
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                     New password will be securely encrypted with bcrypt upon saving.
                   </p>
@@ -627,17 +630,17 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
             </form>
           ) : activeSubTab === 'outreach' ? (
             /* Direct Advisory & Connections Manager SubTab */
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* 1. Direct In-App Notification / Advisory Sender */}
-              <div className="p-5 rounded-2xl bg-slate-50/80 dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] space-y-4">
+              <div className="p-5 rounded-2xl bg-slate-50/60 dark:bg-[#151618] border border-slate-200/70 dark:border-[#303136] space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#237227]/15 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#86A994] flex items-center justify-center shrink-0">
                       <Bell className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">Send Direct Mobile Advisory</h4>
-                      <p className="text-[11px] text-slate-400 dark:text-[#8a8d91]">
+                      <h4 className="text-xs font-semibold text-slate-900 dark:text-[#F5F5F5]">Send Direct Mobile Advisory</h4>
+                      <p className="text-[11px] text-slate-400 dark:text-[#71717A]">
                         Delivers an official notification directly to {user.full_name || user.username || 'this farmer'}&apos;s mobile app inbox
                       </p>
                     </div>
@@ -646,20 +649,20 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
 
                 {/* Preset Quick Templates */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Quick Templates:</span>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-[#71717A] mr-1">Quick Templates:</span>
                   {[
                     {
-                      label: '✅ RSBSA Approved',
+                      label: 'RSBSA Approved',
                       title: 'RSBSA Farmer Accreditation Approved',
                       body: 'Congratulations! Your RSBSA farm registration has been verified by the Municipal Agriculture Office. Your listings now carry the Verified Farmer badge.'
                     },
                     {
-                      label: '⚠️ SRP Price Notice',
+                      label: 'SRP Price Notice',
                       title: 'Bantay Presyo SRP Pricing Reminder',
                       body: 'Please review your active produce listings to ensure prices remain aligned with current Municipal Bantay Presyo SRP guidelines.'
                     },
                     {
-                      label: '🌾 Buyer Match Alert',
+                      label: 'Buyer Demand Alert',
                       title: 'Institutional Buyer Demand Alert',
                       body: 'Verified wholesale buyers in your municipality are actively sourcing fresh harvest this week. Update your available stock on the feed.'
                     }
@@ -671,7 +674,7 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                         setNotifTitle(tpl.title);
                         setNotifContent(tpl.body);
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] hover:border-[#237227] text-[10px] font-bold text-slate-600 dark:text-[#b0b3b8] hover:text-[#237227] dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#1C1D20] border border-slate-200 dark:border-[#303136] hover:border-slate-300 dark:hover:border-[#44464B] text-[10px] font-medium text-slate-600 dark:text-[#A1A1AA] hover:text-slate-900 dark:hover:text-[#F5F5F5] transition-colors cursor-pointer"
                     >
                       {tpl.label}
                     </button>
@@ -679,7 +682,7 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                 </div>
 
                 {notifSuccess && (
-                  <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                     <span>{notifSuccess}</span>
                   </div>
@@ -693,7 +696,7 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                       value={notifTitle}
                       onChange={(e) => setNotifTitle(e.target.value)}
                       placeholder="Notification Headline (e.g., Official Municipal Advisory)"
-                      className="w-full px-3.5 h-10 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-white dark:bg-[#242526] text-xs font-semibold text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227]"
+                      className="w-full px-3.5 h-10 rounded-xl border border-slate-200 dark:border-[#303136] bg-white dark:bg-[#1C1D20] text-xs font-medium text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none focus:border-emerald-600 dark:focus:border-[#86A994]"
                     />
                   </div>
                   <div>
@@ -703,14 +706,14 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                       value={notifContent}
                       onChange={(e) => setNotifContent(e.target.value)}
                       placeholder="Write a direct message or compliance instruction for this user..."
-                      className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-white dark:bg-[#242526] text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-[#237227] leading-relaxed"
+                      className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-[#303136] bg-white dark:bg-[#1C1D20] text-xs text-slate-900 dark:text-[#F5F5F5] placeholder:text-slate-400 dark:placeholder:text-[#71717A] outline-none focus:border-emerald-600 dark:focus:border-[#86A994] leading-relaxed"
                     />
                   </div>
                   <div className="flex justify-end">
                     <button
                       type="submit"
                       disabled={isSendingNotif}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2D5A46] hover:bg-[#3C7057] text-white text-xs font-medium transition-all cursor-pointer disabled:opacity-50"
                     >
                       <Send className="h-3.5 w-3.5" />
                       <span>{isSendingNotif ? 'Sending...' : 'Send Direct Notification'}</span>
@@ -720,19 +723,19 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
 
                 {/* Recent Notifications Sent to User */}
                 {notificationsList.length > 0 && (
-                  <div className="pt-3 border-t border-slate-200/70 dark:border-[#393a3b] space-y-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="pt-3 border-t border-slate-200/70 dark:border-[#303136] space-y-2">
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-[#71717A]">
                       Recent Inbox History ({notificationsList.length})
                     </div>
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                       {notificationsList.map((n) => (
-                        <div key={n.id} className="p-2.5 rounded-xl bg-white dark:bg-[#242526] border border-slate-200/60 dark:border-[#393a3b] flex items-start justify-between gap-2">
+                        <div key={n.id} className="p-2.5 rounded-xl bg-white dark:bg-[#1C1D20] border border-slate-200/60 dark:border-[#303136] flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="text-[11px] font-bold text-slate-800 dark:text-[#e4e6eb] truncate">{n.title}</div>
-                            <p className="text-[10px] text-slate-500 dark:text-[#8a8d91] line-clamp-1 mt-0.5">{n.content}</p>
+                            <div className="text-[11px] font-medium text-slate-900 dark:text-[#F5F5F5] truncate">{n.title}</div>
+                            <p className="text-[10px] text-slate-500 dark:text-[#71717A] line-clamp-1 mt-0.5">{n.content}</p>
                           </div>
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                            n.is_read ? 'bg-slate-100 dark:bg-[#3a3b3c] text-slate-500' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400'
+                          <span className={`text-[9px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                            n.is_read ? 'bg-slate-100 dark:bg-[#242529] text-slate-500 dark:text-[#71717A]' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-[#86A994]'
                           }`}>
                             {n.is_read ? 'Read' : 'Unread'}
                           </span>
@@ -744,41 +747,41 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
               </div>
 
               {/* 2. Farmer Peer Connections Manager */}
-              <div className="p-5 rounded-2xl bg-white dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] space-y-3.5">
+              <div className="p-5 rounded-2xl bg-white dark:bg-[#151618] border border-slate-200/80 dark:border-[#303136] space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                       <UsersIcon className="h-4 w-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">Farmer Peer Connections ({connectionsList.length})</h4>
-                      <p className="text-[11px] text-slate-400 dark:text-[#8a8d91]">Inspect or moderate mobile trade connections for this account</p>
+                      <h4 className="text-xs font-semibold text-slate-900 dark:text-[#F5F5F5]">Farmer Peer Connections ({connectionsList.length})</h4>
+                      <p className="text-[11px] text-slate-400 dark:text-[#71717A]">Inspect or moderate mobile trade connections for this account</p>
                     </div>
                   </div>
                 </div>
 
                 {connectionsList.length === 0 ? (
-                  <div className="py-6 text-center text-slate-400 dark:text-[#8a8d91] text-xs border border-dashed border-slate-200 dark:border-[#393a3b] rounded-xl">
+                  <div className="py-6 text-center text-slate-400 dark:text-[#71717A] text-xs border border-dashed border-slate-200 dark:border-[#303136] rounded-xl">
                     No active or pending peer connections found for this user.
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                     {connectionsList.map((conn) => (
-                      <div key={conn.id} className="p-3 rounded-xl bg-slate-50/70 dark:bg-[#242526] border border-slate-200/60 dark:border-[#393a3b] flex items-center justify-between gap-3">
+                      <div key={conn.id} className="p-3 rounded-xl bg-slate-50/70 dark:bg-[#1C1D20] border border-slate-200/60 dark:border-[#303136] flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb] truncate">
+                            <span className="text-xs font-medium text-slate-900 dark:text-[#F5F5F5] truncate">
                               {conn.peer_name || `User #${conn.peer_id}`}
                             </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full uppercase ${
                               conn.status === 'accepted'
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50'
-                                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-[#86A994] border border-emerald-200 dark:border-emerald-800/40'
+                                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40'
                             }`}>
                               {conn.status}
                             </span>
                           </div>
-                          <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] mt-0.5">
+                          <div className="text-[10px] text-slate-400 dark:text-[#71717A] mt-0.5">
                             {conn.peer_email || (conn.peer_username ? `@${conn.peer_username}` : '')}
                           </div>
                         </div>
@@ -788,7 +791,7 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                             <button
                               type="button"
                               onClick={() => handleConnectionAction(conn.id, 'approve_connection')}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#2D5A46] hover:bg-[#3C7057] text-white text-[10px] font-medium transition-colors cursor-pointer"
                               title="Approve connection"
                             >
                               <Check className="h-3 w-3" />
@@ -812,85 +815,85 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
             </div>
           ) : (
             /* Activity & Metrics SubTab */
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Posts Card */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#151618] border border-slate-200/80 dark:border-[#303136] shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-[#237227]/15 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400 flex items-center justify-center">
-                      <FileText className="h-5 w-5" />
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#86A994] flex items-center justify-center">
+                      <FileText className="h-4 w-4" />
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#237227]/10 dark:bg-[#237227]/20 text-[#237227] dark:text-emerald-400">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#242529] text-slate-600 dark:text-[#A1A1AA]">
                       FEED
                     </span>
                   </div>
                   <div className="mt-4">
-                    <div className="text-3xl font-black text-slate-900 dark:text-[#e4e6eb] tracking-tight">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-[#F5F5F5] tracking-tight">
                       {user.post_count ?? 0}
                     </div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">Total Posts</div>
-                    <p className="text-[11px] text-slate-400 dark:text-[#8a8d91] mt-0.5">Published to farmers feed</p>
+                    <div className="text-xs font-medium text-slate-800 dark:text-[#F5F5F5] mt-1">Total Posts</div>
+                    <p className="text-[11px] text-slate-400 dark:text-[#71717A] mt-0.5">Published to farmers feed</p>
                   </div>
                 </div>
 
                 {/* Stories Card */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#151618] border border-slate-200/80 dark:border-[#303136] shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 dark:bg-amber-500/25 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                      <Clock className="h-5 w-5" />
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <Clock className="h-4 w-4" />
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100/70 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#242529] text-slate-600 dark:text-[#A1A1AA]">
                       24-HOUR
                     </span>
                   </div>
                   <div className="mt-4">
-                    <div className="text-3xl font-black text-slate-900 dark:text-[#e4e6eb] tracking-tight">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-[#F5F5F5] tracking-tight">
                       {user.story_count ?? 0}
                     </div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">Active Stories</div>
-                    <p className="text-[11px] text-slate-400 dark:text-[#8a8d91] mt-0.5">Currently visible on mobile</p>
+                    <div className="text-xs font-medium text-slate-800 dark:text-[#F5F5F5] mt-1">Active Stories</div>
+                    <p className="text-[11px] text-slate-400 dark:text-[#71717A] mt-0.5">Currently visible on mobile</p>
                   </div>
                 </div>
 
                 {/* Connections Card */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] shadow-xs flex flex-col justify-between">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#151618] border border-slate-200/80 dark:border-[#303136] shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/15 dark:bg-blue-500/25 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                      <UsersIcon className="h-5 w-5" />
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                      <UsersIcon className="h-4 w-4" />
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#242529] text-slate-600 dark:text-[#A1A1AA]">
                       PEERS
                     </span>
                   </div>
                   <div className="mt-4">
-                    <div className="text-3xl font-black text-slate-900 dark:text-[#e4e6eb] tracking-tight">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-[#F5F5F5] tracking-tight">
                       {user.connection_count ?? 0}
                     </div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">Connections</div>
-                    <p className="text-[11px] text-slate-400 dark:text-[#8a8d91] mt-0.5">Verified farmer network</p>
+                    <div className="text-xs font-medium text-slate-800 dark:text-[#F5F5F5] mt-1">Connections</div>
+                    <p className="text-[11px] text-slate-400 dark:text-[#71717A] mt-0.5">Verified farmer network</p>
                   </div>
                 </div>
               </div>
 
               {/* Database Records & Audit Grid Card */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] shadow-xs space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-[#393a3b]">
+              <div className="p-5 rounded-2xl bg-white dark:bg-[#151618] border border-slate-200/80 dark:border-[#303136] shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-[#303136]">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#242526] text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
-                      <Database className="h-4 w-4" />
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-[#242529] text-slate-600 dark:text-[#A1A1AA] flex items-center justify-center shrink-0">
+                      <Database className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">Database Audit & Records</h4>
-                      <p className="text-[11px] text-slate-400 dark:text-[#8a8d91]">System timestamps and live account status in MySQL</p>
+                      <h4 className="text-xs font-semibold text-slate-900 dark:text-[#F5F5F5]">Database Audit & Records</h4>
+                      <p className="text-[11px] text-slate-400 dark:text-[#71717A]">System timestamps and live account status in MySQL</p>
                     </div>
                   </div>
 
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-bold w-fit ${
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-medium w-fit ${
                     formData.status === 'suspended'
                       ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800'
                       : formData.status === 'pending'
                       ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-[#86A994] border-emerald-200 dark:border-emerald-800/40'
                   }`}>
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {formData.status === 'suspended' ? 'Suspended Account' : formData.status === 'pending' ? 'Pending Review' : 'Active Account'}
@@ -898,47 +901,47 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
                 </div>
 
                 {/* 4 Metadata Tiles */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#242526] border border-slate-100 dark:border-[#393a3b] flex items-center justify-between">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#1C1D20] border border-slate-100 dark:border-[#303136] flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <Shield className="h-4 w-4 text-slate-400" />
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Database ID</span>
+                      <Shield className="h-4 w-4 text-slate-400 dark:text-[#71717A]" />
+                      <span className="text-xs font-medium text-slate-600 dark:text-[#A1A1AA]">Database ID</span>
                     </div>
-                    <span className="font-mono font-bold text-xs text-slate-900 dark:text-[#e4e6eb] bg-white dark:bg-[#18191a] px-2.5 py-0.5 rounded-md border border-slate-200/80 dark:border-[#393a3b] shadow-2xs">
+                    <span className="font-mono font-medium text-xs text-slate-900 dark:text-[#F5F5F5] bg-white dark:bg-[#151618] px-2.5 py-0.5 rounded-md border border-slate-200/80 dark:border-[#303136]">
                       #{user.id}
                     </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#242526] border border-slate-100 dark:border-[#393a3b] flex items-center justify-between">
+                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#1C1D20] border border-slate-100 dark:border-[#303136] flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <User className="h-4 w-4 text-slate-400" />
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">System Role</span>
+                      <User className="h-4 w-4 text-slate-400 dark:text-[#71717A]" />
+                      <span className="text-xs font-medium text-slate-600 dark:text-[#A1A1AA]">System Role</span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-md uppercase ${
+                    <span className={`text-[10px] font-medium px-2.5 py-0.5 rounded-md uppercase ${
                       ['admin', 'super_admin', 'inspector', 'moderator', 'dispatcher'].includes(user.role)
-                        ? 'bg-[#237227]/15 dark:bg-[#237227]/30 text-[#237227] dark:text-emerald-400 border border-[#237227]/30' 
-                        : 'bg-slate-200/80 dark:bg-[#3a3b3c] text-slate-700 dark:text-slate-300'
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-[#86A994] border border-emerald-500/20 dark:border-[#86A994]/30' 
+                        : 'bg-slate-200/80 dark:bg-[#242529] text-slate-700 dark:text-[#A1A1AA]'
                     }`}>
                       {user.role === 'super_admin' ? 'Super Administrator' : user.role === 'inspector' ? 'Agriculture Inspector' : user.role === 'moderator' ? 'Community Moderator' : user.role === 'dispatcher' ? 'Calamity Dispatcher' : user.role === 'admin' ? 'Administrator' : 'Standard Farmer'}
                     </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#242526] border border-slate-100 dark:border-[#393a3b] flex items-center justify-between">
+                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#1C1D20] border border-slate-100 dark:border-[#303136] flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Registration Date</span>
+                      <Calendar className="h-4 w-4 text-slate-400 dark:text-[#71717A]" />
+                      <span className="text-xs font-medium text-slate-600 dark:text-[#A1A1AA]">Registration Date</span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="text-xs font-medium text-slate-800 dark:text-[#F5F5F5]">
                       {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                     </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#242526] border border-slate-100 dark:border-[#393a3b] flex items-center justify-between">
+                  <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#1C1D20] border border-slate-100 dark:border-[#303136] flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <Clock className="h-4 w-4 text-slate-400" />
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Last Profile Update</span>
+                      <Clock className="h-4 w-4 text-slate-400 dark:text-[#71717A]" />
+                      <span className="text-xs font-medium text-slate-600 dark:text-[#A1A1AA]">Last Profile Update</span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="text-xs font-medium text-slate-800 dark:text-[#F5F5F5]">
                       {user.updated_at ? new Date(user.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never'}
                     </span>
                   </div>
@@ -949,11 +952,11 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
         </div>
 
         {/* Modal Bottom Actions */}
-        <div className="bg-slate-50/70 dark:bg-[#18191a] px-8 py-5 border-t border-slate-100 dark:border-[#393a3b] flex items-center justify-between shrink-0">
+        <div className="bg-slate-50/70 dark:bg-[#151618] px-7 py-4 border-t border-slate-100 dark:border-[#303136] flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="h-11 px-6 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-white dark:bg-[#242526] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-slate-700 dark:text-[#e4e6eb] font-semibold text-xs transition-all cursor-pointer shadow-2xs"
+            className="h-10 px-5 rounded-xl border border-slate-200 dark:border-[#303136] bg-white dark:bg-[#1C1D20] hover:bg-slate-50 dark:hover:bg-[#242529] text-slate-600 dark:text-[#A1A1AA] hover:text-slate-900 dark:hover:text-[#F5F5F5] font-medium text-xs transition-all cursor-pointer shadow-2xs"
           >
             Cancel
           </button>
@@ -963,7 +966,7 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
               form="edit-user-form"
               type="submit"
               disabled={isSaving}
-              className="h-11 px-7 rounded-xl bg-farm-600 hover:bg-farm-700 active:scale-[0.98] text-white font-bold text-xs shadow-2xs hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              className="h-10 px-6 rounded-xl bg-[#2D5A46] hover:bg-[#3C7057] active:scale-[0.98] text-white font-medium text-xs shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               <span>{isSaving ? 'Saving Changes...' : 'Save User Changes'}</span>
@@ -972,7 +975,7 @@ export function EditUserModal({ isOpen, user, onClose, onSaveSuccess }: EditUser
             <button
               type="button"
               onClick={() => setActiveSubTab('profile')}
-              className="h-11 px-6 rounded-xl bg-farm-600 hover:bg-farm-700 text-white font-bold text-xs shadow-2xs transition-all cursor-pointer"
+              className="h-10 px-5 rounded-xl bg-[#2D5A46] hover:bg-[#3C7057] text-white font-medium text-xs shadow-sm transition-all cursor-pointer"
             >
               Proceed to Edit Details
             </button>

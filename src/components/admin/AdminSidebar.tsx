@@ -173,7 +173,7 @@ export function AdminSidebar({
   }
 
   return (
-    <aside className={'farm-sidebar ' + (isCollapsed ? 'is-collapsed' : '')} aria-label="Administration sidebar">
+    <aside className={'farm-sidebar sidebar ' + (isCollapsed ? 'is-collapsed' : '')} aria-label="Administration sidebar">
       <div className="sidebar-brand">
         {!isCollapsed && <span className="sidebar-wordmark">LocalFarm</span>}
         <button type="button" className="sidebar-toggle" onClick={onToggleCollapse} aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!isCollapsed} title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}><Menu size={19} strokeWidth={1.6}/></button>
@@ -181,19 +181,19 @@ export function AdminSidebar({
       <nav className="sidebar-navigation" aria-label="Admin navigation">
         {filteredNavTree.map(group => {
           const Icon = group.icon;
-          if (!group.items?.length) return <button type="button" className="sidebar-link" key={group.id} aria-label={group.label} aria-current={activeTab === group.id ? 'page' : undefined} title={isCollapsed ? group.label : undefined} onClick={() => setActiveTab(group.id)}><Icon size={19} strokeWidth={1.6}/>{!isCollapsed && <span>{group.label}</span>}</button>;
+          if (!group.items?.length) return <button type="button" className={'sidebar-link sidebar-item' + (activeTab === group.id ? ' active' : '')} key={group.id} aria-label={group.label} aria-current={activeTab === group.id ? 'page' : undefined} title={isCollapsed ? group.label : undefined} onClick={() => setActiveTab(group.id)}><Icon size={19} strokeWidth={1.6}/>{!isCollapsed && <span>{group.label}</span>}</button>;
           const isOpen = !!openGroups[group.id];
           const isChildActive = group.items.some(item => item.id === activeTab);
           const count = group.items.reduce((sum, item) => sum + (item.badge || 0), 0);
           return <div className="sidebar-group" key={group.id}>
-            <button type="button" className={'sidebar-link sidebar-group-toggle' + (isChildActive ? ' has-active-child' : '')} aria-label={group.label} aria-expanded={isOpen && !isCollapsed} aria-controls={'nav-' + group.id} onClick={() => toggleGroup(group.id)} title={isCollapsed ? group.label : undefined}>
+            <button type="button" className={'sidebar-link sidebar-item sidebar-group-toggle' + (isChildActive ? ' has-active-child' : '')} aria-label={group.label} aria-expanded={isOpen && !isCollapsed} aria-controls={'nav-' + group.id} onClick={() => toggleGroup(group.id)} title={isCollapsed ? group.label : undefined}>
               <Icon size={19} strokeWidth={1.6}/>
               {!isCollapsed && <><span>{group.label}</span>{count > 0 && !isOpen && <small className="sidebar-count">{count}</small>}<ChevronDown size={14} className={isOpen ? 'is-open' : ''}/></>}
             </button>
             <div id={'nav-' + group.id} hidden={!isOpen || isCollapsed} className="sidebar-children">
               {group.items.map(item => {
                 const ChildIcon = item.icon;
-                return <button type="button" key={item.id} className="sidebar-link" aria-current={activeTab === item.id ? 'page' : undefined} onClick={() => setActiveTab(item.id)}><ChildIcon size={17} strokeWidth={1.6}/><span>{item.label}</span>{!!item.badge && <small className="sidebar-count">{item.badge}</small>}</button>;
+                return <button type="button" key={item.id} className={'sidebar-link sidebar-item' + (activeTab === item.id ? ' active' : '')} aria-current={activeTab === item.id ? 'page' : undefined} onClick={() => setActiveTab(item.id)}><ChildIcon size={17} strokeWidth={1.6}/><span>{item.label}</span>{!!item.badge && <small className="sidebar-count">{item.badge}</small>}</button>;
               })}
             </div>
           </div>;

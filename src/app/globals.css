@@ -89,39 +89,79 @@ body {
 }
 
 /* ========================================================= */
-/* FACEBOOK NIGHT MODE PALETTE                               */
+/* PREMIUM PINE-DARK NIGHT MODE PALETTE                      */
 /* ========================================================= */
 html.dark {
   color-scheme: dark;
-  --chart-slot-bg: rgba(255, 255, 255, 0.04);
-  --chart-slot-hover: rgba(255, 255, 255, 0.09);
-  --chart-grid: #393a3b;
-  --chart-axis: #4e4f50;
-  --chart-text: #b0b3b8;
+  /* Backgrounds */
+  --background: #0E0F11;
+  --sidebar: #131416;
+  --container: #151618;
+  --card: #1C1D20;
+  --card-hover: #242529;
+
+  /* Borders */
+  --border: #303136;
+  --border-hover: #44464B;
+
+  /* Brand */
+  --primary: #2D5A46;
+  --primary-hover: #3C7057;
+  --accent: #86A994;
+
+  /* Sidebar */
+  --sidebar-active: #2D5A46;
+  --sidebar-hover: #242529;
+  --sidebar-text: #A1A1AA;
+  --sidebar-active-text: #FFFFFF;
+
+  /* Typography */
+  --text-primary: #F5F5F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+
+  /* Compatibility Tokens */
+  --surface: #151618;
+  --hover: #3C7057;
+  --text: #F5F5F5;
+  --muted: #A1A1AA;
+
+  /* Chart Tokens */
+  --chart-line: #86A994;
+  --chart-fill: rgba(45, 90, 70, 0.16);
+  --chart-slot-bg: rgba(255, 255, 255, 0.03);
+  --chart-slot-hover: rgba(134, 169, 148, 0.12);
+  --chart-grid: #303136;
+  --chart-axis: #303136;
+  --chart-text: #A1A1AA;
 }
 
 html.dark body {
-  background-color: #18191a !important; /* Facebook wash */
-  color: #b0b3b8 !important; /* Facebook secondary text */
+  background-color: #0E0F11 !important;
+  color: #F5F5F5 !important;
 }
 
 html.dark .bg-\[\#f8f9fa\] {
-  background-color: #18191a !important;
+  background-color: #0E0F11 !important;
 }
 
-/* Facebook Card / Elevated Surface (#242526) */
+/* Premium Card / Elevated Surface (#1C1D20) */
 html.dark .bg-white,
 html.dark .dark\:bg-slate-900,
 html.dark .dark\:bg-slate-800,
 html.dark .dark\:bg-slate-800\/90,
 html.dark .dark\:bg-slate-800\/80,
-html.dark .dark\:bg-slate-800\/70 {
-  background-color: #242526 !important;
-  border-color: #393a3b !important;
-  color: #e4e6eb;
+html.dark .dark\:bg-slate-800\/70,
+html.dark .dark\:bg-\[\#181a18\],
+html.dark .dark\:bg-\[\#232b25\],
+html.dark .dark\:bg-\[\#161816\],
+html.dark .dark\:bg-\[\#191f1b\] {
+  background-color: #1C1D20 !important;
+  border-color: #303136 !important;
+  color: #F5F5F5 !important;
 }
 
-/* Insets, Sub-panels & Nested Containers (#18191a wash or subtle dark) */
+/* Insets, Sub-panels & Nested Containers (#151618 container) */
 html.dark .bg-slate-50,
 html.dark .bg-slate-50\/40,
 html.dark .bg-slate-50\/50,
@@ -129,12 +169,13 @@ html.dark .bg-slate-50\/60,
 html.dark .bg-slate-50\/70,
 html.dark .bg-slate-50\/80,
 html.dark .bg-slate-50\/90,
-html.dark .dark\:bg-slate-950\/40 {
-  background-color: #18191a !important;
-  border-color: #393a3b !important;
+html.dark .dark\:bg-slate-950\/40,
+html.dark .dark\:bg-\[\#2d3a30\] {
+  background-color: #151618 !important;
+  border-color: #303136 !important;
 }
 
-/* Facebook Hover Overlay (#3a3b3c) */
+/* Hover Overlays (#242529) */
 html.dark .hover\:bg-slate-50\/70:hover,
 html.dark .hover\:bg-slate-50\/80:hover,
 html.dark .hover\:bg-slate-100\/80:hover,
@@ -142,21 +183,23 @@ html.dark .hover\:bg-slate-50:hover,
 html.dark .hover\:bg-slate-100:hover,
 html.dark .dark\:hover\:bg-slate-800\/50:hover,
 html.dark .dark\:hover\:bg-slate-700:hover,
-html.dark .dark\:hover\:bg-slate-700\/60:hover {
-  background-color: #3a3b3c !important;
+html.dark .dark\:hover\:bg-slate-700\/60:hover,
+html.dark .dark\:hover\:bg-\[\#202420\]:hover,
+html.dark .dark\:hover\:bg-\[\#2a342c\]:hover {
+  background-color: #242529 !important;
 }
 
-/* Secondary surface / chips / badges (#3a3b3c) */
+/* Secondary surface / chips / badges (#151618) */
 html.dark .bg-slate-100,
 html.dark .bg-slate-100\/80,
 html.dark .bg-slate-100\/90,
 html.dark .dark\:bg-slate-900\/90,
 html.dark .dark\:bg-slate-900 {
-  background-color: #3a3b3c !important;
-  border-color: #393a3b !important;
+  background-color: #151618 !important;
+  border-color: #303136 !important;
 }
 
-/* Facebook Borders & Dividers (#393a3b) */
+/* Borders & Dividers (#303136) */
 html.dark .border-slate-200,
 html.dark .border-slate-200\/90,
 html.dark .border-slate-200\/80,
@@ -164,82 +207,114 @@ html.dark .border-slate-200\/70,
 html.dark .border-slate-200\/60,
 html.dark .border-slate-100,
 html.dark .dark\:border-slate-800,
+html.dark .dark\:border-slate-800\/80,
 html.dark .dark\:border-slate-700,
 html.dark .dark\:border-slate-700\/60,
 html.dark .dark\:border-slate-700\/80,
+html.dark .dark\:border-white\/10,
+html.dark .dark\:border-white\/20,
 html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
 html.dark .dark\:divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #393a3b !important;
+  border-color: #303136 !important;
 }
 
-/* Facebook Typography */
-/* Primary Text (#e4e6eb) */
+/* Typography in Dark Mode */
+/* Primary Text (#F5F5F5) */
 html.dark .text-slate-900,
 html.dark .text-slate-800,
 html.dark .text-black,
 html.dark .dark\:text-slate-100,
-html.dark .dark\:text-slate-200 {
-  color: #e4e6eb !important;
+html.dark .dark\:text-slate-200,
+html.dark .dark\:text-zinc-300,
+html.dark .dark\:text-white {
+  color: #F5F5F5 !important;
 }
 
-/* Secondary Text (#b0b3b8) */
+/* Secondary / Muted Text (#A1A1AA) */
 html.dark .text-slate-700,
 html.dark .text-slate-600,
+html.dark .text-slate-500,
 html.dark .dark\:text-slate-300,
-html.dark .dark\:text-slate-400 {
-  color: #b0b3b8 !important;
+html.dark .dark\:text-slate-400,
+html.dark .dark\:text-zinc-400 {
+  color: #A1A1AA !important;
 }
 
-/* Placeholder & Muted Text (#8a8d91) */
-html.dark .text-slate-500,
+/* Tertiary / Muted Text (#71717A) */
 html.dark .text-slate-400,
 html.dark .dark\:text-slate-500,
 html.dark .dark\:text-slate-600 {
-  color: #8a8d91 !important;
+  color: #71717A !important;
 }
 
-/* Form Inputs, Dropdowns & Textareas (Facebook Input style #3a3b3c) */
+/* Form Inputs, Dropdowns & Textareas */
 html.dark input,
 html.dark select,
 html.dark textarea {
-  background-color: #3a3b3c !important;
-  color: #e4e6eb !important;
-  border-color: #393a3b !important;
+  background-color: #151618 !important;
+  color: #F5F5F5 !important;
+  border-color: #303136 !important;
 }
 
 html.dark input:focus,
 html.dark select:focus,
 html.dark textarea:focus {
-  border-color: #237227 !important;
-  box-shadow: 0 0 0 2px rgba(35, 114, 39, 0.45) !important;
-  background-color: #3a3b3c !important;
+  border-color: #44464B !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08) !important;
+  background-color: #151618 !important;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #8a8d91 !important;
+  color: #71717A !important;
 }
 
 html.dark select option {
-  background-color: #242526;
-  color: #e4e6eb;
+  background-color: #1C1D20;
+  color: #F5F5F5;
 }
 
-/* Card Hover Elevation in Facebook Dark Mode */
+/* Card Hover Elevation in Premium Dark Mode */
 html.dark .hover\:border-slate-300\/80:hover {
-  border-color: #4e4f50 !important;
+  border-color: #44464B !important;
 }
 
 html.dark .hover\:shadow-md:hover {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* Facebook-Style Soft Accent Status Badges */
+/* Primary Brand / Forest Accents */
+html.dark .bg-emerald-600,
+html.dark .bg-emerald-700,
+html.dark .bg-green-600,
+html.dark .bg-green-700 {
+  background: #2D5A46 !important;
+  border-color: #2D5A46 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 2px 10px rgba(45, 90, 70, 0.35) !important;
+}
+
+html.dark .bg-emerald-600:hover,
+html.dark .bg-emerald-700:hover,
+html.dark .bg-green-600:hover,
+html.dark .bg-green-700:hover {
+  background: #3C7057 !important;
+  border-color: #3C7057 !important;
+  box-shadow: 0 4px 16px rgba(60, 112, 87, 0.45) !important;
+}
+
+/* Status Badges */
 html.dark .bg-emerald-50 {
-  background-color: rgba(49, 162, 76, 0.2) !important;
-  color: #31a24c !important;
-  border-color: rgba(49, 162, 76, 0.3) !important;
+  background-color: rgba(45, 90, 70, 0.15) !important;
+  color: #A1A1AA !important;
+  border-color: #303136 !important;
+}
+
+html.dark .text-emerald-600,
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 {
+  color: #86A994 !important;
 }
 
 html.dark .bg-blue-50 {

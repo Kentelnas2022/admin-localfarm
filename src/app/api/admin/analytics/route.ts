@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSessionAdmin } from '@/lib/auth';
 import { query } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const admin = await getSessionAdmin();
@@ -11,7 +14,14 @@ export async function GET() {
 
     // 1. KPI Counts directly from MySQL localfarm tables
     const [userRows] = await query<any[]>('SELECT COUNT(*) as count FROM users');
-    const [farmerRows] = await query<any[]>('SELECT COUNT(*) as count FROM users WHERE role = "user"');
+    const [farmerRows] = await query<any[]>(`
+      SELECT COUNT(DISTINCT user_id) as count 
+      FROM (
+        SELECT user_id FROM farmer_profiles
+        UNION
+        SELECT id as user_id FROM users WHERE role = 'farmer'
+      ) f
+    `);
     const [recentUsersRows] = await query<any[]>(
       'SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL 7 DAY'
     );
@@ -24,6 +34,8 @@ export async function GET() {
         SELECT user_id, created_at FROM stories WHERE created_at >= NOW() - INTERVAL 24 HOUR
         UNION ALL
         SELECT user_id, created_at FROM post_comments WHERE created_at >= NOW() - INTERVAL 24 HOUR
+        UNION ALL
+        SELECT user_id, last_active_at as created_at FROM user_sessions WHERE last_active_at >= NOW() - INTERVAL 24 HOUR
         UNION ALL
         SELECT id as user_id, created_at FROM users WHERE created_at >= NOW() - INTERVAL 24 HOUR
       ) act
@@ -47,18 +59,29 @@ export async function GET() {
       totalReportsCount = tRep?.[0]?.count ?? tRep?.count ?? 0;
     } catch {}
 
-    const totalFarmers = farmerRows?.[0]?.count ?? farmerRows?.count ?? userRows?.[0]?.count ?? 0;
-    const totalUsers = userRows?.[0]?.count ?? userRows?.count ?? 0;
-    const newSignups = recentUsersRows?.[0]?.count ?? recentUsersRows?.count ?? 0;
-    const activeToday = activeTodayRows?.[0]?.count ?? activeTodayRows?.count ?? 0;
-    const totalPosts = postRows?.[0]?.count ?? postRows?.count ?? 0;
-    const activeStories = storyRows?.[0]?.count ?? storyRows?.count ?? 0;
-    const pendingConnections = pendingConnRows?.[0]?.count ?? pendingConnRows?.count ?? 0;
-    const totalMessages = messageRows?.[0]?.count ?? messageRows?.count ?? 0;
-    const totalComments = commentRows?.[0]?.count ?? commentRows?.count ?? 0;
-    const totalShares = shareRows?.[0]?.count ?? shareRows?.count ?? 0;
+    const totalFarmers = Number(farmerRows?.[0]?.count ?? farmerRows?.count ?? 0);
+    const totalUsers = Number(userRows?.[0]?.count ?? userRows?.count ?? 0);
+    const newSignups = Number(recentUsersRows?.[0]?.count ?? recentUsersRows?.count ?? 0);
+    const activeToday = Number(activeTodayRows?.[0]?.count ?? activeTodayRows?.count ?? 0);
+    const totalPosts = Number(postRows?.[0]?.count ?? postRows?.count ?? 0);
+    const activeStories = Number(storyRows?.[0]?.count ?? storyRows?.count ?? 0);
+    const pendingConnections = Number(pendingConnRows?.[0]?.count ?? pendingConnRows?.count ?? 0);
+    const totalMessages = Number(messageRows?.[0]?.count ?? messageRows?.count ?? 0);
+    const totalComments = Number(commentRows?.[0]?.count ?? commentRows?.count ?? 0);
+    const totalShares = Number(shareRows?.[0]?.count ?? shareRows?.count ?? 0);
 
     // 2. User/Farmer Growth Line Chart (Monthly Registrations Jan..Dec)
+    // Query baseline registrations prior to current calendar year so cumulative graph matches totalUsers
+    let priorBaseline = 0;
+    try {
+      const [priorRows] = await query<any[]>(`
+        SELECT COUNT(*) as count 
+        FROM users 
+        WHERE created_at < DATE_FORMAT(CURDATE(), '%Y-01-01')
+      `);
+      priorBaseline = Number(priorRows?.[0]?.count ?? priorRows?.count ?? 0);
+    } catch {}
+
     const monthlyUsersRows = await query<any[]>(`
       SELECT MONTH(created_at) as month_num, COUNT(*) as count 
       FROM users 
@@ -69,7 +92,7 @@ export async function GET() {
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const userGrowthByMonth = monthLabels.map((label, idx) => {
       const monthNum = idx + 1;
-      const found = monthlyUsersRows.find((r: any) => Number(r.month_num) === monthNum);
+      const found = Array.isArray(monthlyUsersRows) ? monthlyUsersRows.find((r: any) => Number(r.month_num) === monthNum) : undefined;
       return {
         month: monthNum,
         label,
@@ -77,8 +100,8 @@ export async function GET() {
       };
     });
 
-    // Calculate cumulative counts for the growth line
-    let runningSum = 0;
+    // Calculate cumulative counts for the growth line starting from prior baseline
+    let runningSum = priorBaseline;
     const userGrowthWithCumulative = userGrowthByMonth.map((item) => {
       runningSum += item.count;
       return {
@@ -149,9 +172,9 @@ export async function GET() {
     `);
 
     const contentActivityData = activityMonths.map((m) => {
-      const p = monthlyPosts.find((r: any) => Number(r.month_num) === m.num);
-      const c = monthlyComments.find((r: any) => Number(r.month_num) === m.num);
-      const s = monthlyShares.find((r: any) => Number(r.month_num) === m.num);
+      const p = Array.isArray(monthlyPosts) ? monthlyPosts.find((r: any) => Number(r.month_num) === m.num) : undefined;
+      const c = Array.isArray(monthlyComments) ? monthlyComments.find((r: any) => Number(r.month_num) === m.num) : undefined;
+      const s = Array.isArray(monthlyShares) ? monthlyShares.find((r: any) => Number(r.month_num) === m.num) : undefined;
       return {
         label: m.label,
         month: m.num,
