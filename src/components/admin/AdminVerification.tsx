@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check,
   Award, 
@@ -73,6 +74,29 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>(initialStatusFilter);
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target as Node)) {
+        setIsFilterDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsFilterDropdownOpen(false);
+      }
+    };
+    if (isFilterDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFilterDropdownOpen]);
 
   useEffect(() => {
     if (initialStatusFilter) {
@@ -348,92 +372,165 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
       {/* =========== UNIFIED ACCREDITATION COMMUNICATIONS PANEL (MATCHING REFERENCE IMAGE) =========== */}
       <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
         
-        {/* 1. TOP HEADER BAR */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Left: Dropdown Selection (No dragging slide / scrollbar) */}
-          {/* Accreditation Status Dropdown (Exact match to reference UI) */}
-          <div className="relative inline-flex items-center">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as any);
-                setCurrentPage(1);
-              }}
-              aria-label="Filter farmer accreditations"
-              className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-            >
-              <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                All applications ({stats.total})
-              </option>
-              <option value="pending" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Pending Review ({stats.pending})
-              </option>
-              <option value="verified" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Verified Producers ({stats.verified})
-              </option>
-              <option value="rejected" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Rejected Applications ({stats.rejected})
-              </option>
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
+        {/* 1. TOP HEADER BAR: Foolish Minimalism & Premium Elegance (Matching Reference UI) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3.5">
+          {/* Left: Accreditation Status Custom Animated Dropdown */}
+          <div ref={filterDropdownRef} className="relative inline-flex items-center">
+            {(() => {
+              const filterOptions: { key: 'all' | 'pending' | 'verified' | 'rejected'; label: string; count: number }[] = [
+                { key: 'all', label: 'All applications', count: stats.total },
+                { key: 'pending', label: 'Pending Review', count: stats.pending },
+                { key: 'verified', label: 'Verified Producers', count: stats.verified },
+                { key: 'rejected', label: 'Rejected Applications', count: stats.rejected },
+              ];
+              const currentOption = filterOptions.find((o) => o.key === statusFilter) || filterOptions[0];
+
+              return (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterDropdownOpen((prev) => !prev)}
+                    aria-expanded={isFilterDropdownOpen}
+                    aria-haspopup="listbox"
+                    aria-label="Filter farmer accreditations"
+                    className="group inline-flex items-center gap-2 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 active:scale-[0.98] text-slate-800 dark:text-zinc-100 font-semibold text-xs sm:text-sm transition-all duration-200 cursor-pointer select-none shadow-2xs"
+                  >
+                    <span>
+                      {currentOption.label} ({currentOption.count})
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-slate-400 dark:text-zinc-400 group-hover:text-slate-600 dark:group-hover:text-zinc-200 transition-transform duration-250 ease-out ${
+                        isFilterDropdownOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  <AnimatePresence>
+                    {isFilterDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                        transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute left-0 top-full mt-2 w-64 p-1.5 rounded-2xl bg-white/95 dark:bg-[#181a18]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-xl shadow-slate-900/10 dark:shadow-black/50 z-50 overflow-hidden"
+                      >
+                        <div className="space-y-0.5" role="listbox">
+                          {filterOptions.map((opt) => {
+                            const isSelected = statusFilter === opt.key;
+                            return (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  setStatusFilter(opt.key);
+                                  setCurrentPage(1);
+                                  setIsFilterDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all duration-150 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white font-semibold'
+                                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100/70 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white font-medium'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                                      isSelected ? 'bg-emerald-600 scale-100' : 'bg-transparent scale-0'
+                                    }`}
+                                  />
+                                  <span>{opt.label}</span>
+                                </div>
+                                <span
+                                  className={`text-[10px] px-2 py-0.5 rounded-md font-mono ${
+                                    isSelected
+                                      ? 'bg-slate-200/80 dark:bg-white/15 text-slate-900 dark:text-zinc-100 font-bold'
+                                      : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-zinc-400'
+                                  }`}
+                                >
+                                  {opt.count}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              );
+            })()}
           </div>
 
           {/* Right Side Tools: Search, Export, DA Audit, + Register */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* Pill Search */}
-            <div className="relative min-w-[180px] sm:w-56">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search farmer, farm, crops..."
-                className="w-full pl-9 pr-7 py-1.5 text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
+          <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+            {/* Search */}
+            <div className="relative min-w-[190px] sm:w-56">
+              <div className="group relative flex items-center">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-slate-600 dark:group-focus-within:text-zinc-300 transition-colors pointer-events-none duration-200" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search..."
+                  className="w-full h-10 pl-9 pr-8 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-slate-400 dark:focus:border-white/20 focus:ring-2 focus:ring-slate-400/10 shadow-2xs hover:border-slate-300 dark:hover:border-white/20 transition-all duration-200"
+                />
+                <AnimatePresence>
+                  {searchQuery && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setCurrentPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-3 w-3" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
-            {/* Export CSV */}
+            {/* Export PDF */}
             <a
               href="/api/admin/export?type=farmers"
-              download
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
-              title="Export Farmer Directory to CSV"
+              download="LocalFarm-Farmer-Accreditation.pdf"
+              className="group inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-2xs active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
+              title="Export Farmer Accreditation Directory to Official PDF"
             >
-              <Download className="h-3.5 w-3.5 text-slate-400" />
+              <Download className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-zinc-200 group-hover:translate-y-0.5 transition-all duration-200" />
               <span>Export</span>
             </a>
 
             {/* DA Compliance Audit Report */}
             <a
               href="/api/admin/export?type=da_report"
-              download
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
-              title="Download Department of Agriculture (DA) & Municipal Agriculture Office (MAO) Compliance Audit Report"
+              download="DA-MAO-Compliance-Audit-Report.pdf"
+              className="group inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-emerald-300/80 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-2xs active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
+              title="Download Department of Agriculture (DA) & Municipal Agriculture Office (MAO) Compliance Audit Report (PDF)"
             >
-              <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-200" />
               <span>DA Audit</span>
             </a>
 
-            {/* + Register Farmer */}
+            {/* Register Farmer */}
             <button
               type="button"
               onClick={() => setIsAddFarmerOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#237227] hover:bg-[#1c5c1f] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+              className="group inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-[#1b5e20] hover:bg-[#154d1a] active:bg-[#0f3813] text-white text-xs font-bold shadow-xs hover:shadow-md hover:shadow-emerald-950/20 active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
             >
-              <Plus className="h-3.5 w-3.5" />
-              <span>+ Register</span>
+              <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300 ease-out" />
+              <span>Register</span>
             </button>
           </div>
         </div>

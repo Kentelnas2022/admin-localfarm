@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -61,6 +62,28 @@ export function AdminPriceWatch() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [activeActionId, setActiveActionId] = useState<number | null>(null);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    if (isCategoryDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCategoryDropdownOpen]);
 
   function toggleSelect(id: number) {
     setSelectedIds(prev => {
@@ -351,73 +374,145 @@ export function AdminPriceWatch() {
       {/* =========== 2. PRICE BENCHMARKS UNIFIED TABLE (MATCHING REFERENCE IMAGE) =========== */}
       <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
         
-        {/* Top Dropdown Selection & Tools (No dragging slide / scrollbar) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-          {/* Produce Category Dropdown (Exact match to reference UI) */}
-          <div className="relative inline-flex items-center">
-            <select
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              aria-label="Filter by produce category"
-              className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-            >
-              <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                All benchmarks ({categoryCounts.all})
-              </option>
-              <option value="Vegetables" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Vegetables ({categoryCounts.Vegetables})
-              </option>
-              <option value="Fruits" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Fruits ({categoryCounts.Fruits})
-              </option>
-              <option value="Grains & Rice" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Grains & Rice ({categoryCounts['Grains & Rice']})
-              </option>
-              <option value="Fish & Aquaculture" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Aquaculture ({categoryCounts['Fish & Aquaculture']})
-              </option>
-              <option value="Commercial Crops" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                Commercial Crops ({categoryCounts['Commercial Crops']})
-              </option>
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
+        {/* Top Dropdown Selection & Tools: Foolish Minimalism & Premium Calm Palette */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3.5">
+          {/* Produce Category Custom Animated Dropdown */}
+          <div ref={categoryDropdownRef} className="relative inline-flex items-center">
+            {(() => {
+              const filterOptions = [
+                { key: 'all', label: 'All benchmarks', count: categoryCounts.all },
+                { key: 'Vegetables', label: 'Vegetables', count: categoryCounts.Vegetables },
+                { key: 'Fruits', label: 'Fruits', count: categoryCounts.Fruits },
+                { key: 'Grains & Rice', label: 'Grains & Rice', count: categoryCounts['Grains & Rice'] },
+                { key: 'Fish & Aquaculture', label: 'Aquaculture', count: categoryCounts['Fish & Aquaculture'] },
+                { key: 'Commercial Crops', label: 'Commercial Crops', count: categoryCounts['Commercial Crops'] },
+              ];
+              const currentOption = filterOptions.find((o) => o.key === categoryFilter) || filterOptions[0];
+
+              return (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
+                    aria-expanded={isCategoryDropdownOpen}
+                    aria-haspopup="listbox"
+                    aria-label="Filter by produce category"
+                    className="group inline-flex items-center gap-2 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 active:scale-[0.98] text-slate-800 dark:text-zinc-100 font-semibold text-xs sm:text-sm transition-all duration-200 cursor-pointer select-none shadow-2xs"
+                  >
+                    <span>
+                      {currentOption.label} ({currentOption.count})
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-slate-400 dark:text-zinc-400 group-hover:text-slate-600 dark:group-hover:text-zinc-200 transition-transform duration-250 ease-out ${
+                        isCategoryDropdownOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  <AnimatePresence>
+                    {isCategoryDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                        transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute left-0 top-full mt-2 w-64 p-1.5 rounded-2xl bg-white/95 dark:bg-[#181a18]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-xl shadow-slate-900/10 dark:shadow-black/50 z-50 overflow-hidden"
+                      >
+                        <div className="space-y-0.5" role="listbox">
+                          {filterOptions.map((opt) => {
+                            const isSelected = categoryFilter === opt.key;
+                            return (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  setCategoryFilter(opt.key);
+                                  setCurrentPage(1);
+                                  setIsCategoryDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all duration-150 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white font-semibold'
+                                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100/70 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white font-medium'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                                      isSelected ? 'bg-emerald-600 scale-100' : 'bg-transparent scale-0'
+                                    }`}
+                                  />
+                                  <span>{opt.label}</span>
+                                </div>
+                                <span
+                                  className={`text-[10px] px-2 py-0.5 rounded-md font-mono ${
+                                    isSelected
+                                      ? 'bg-slate-200/80 dark:bg-white/15 text-slate-900 dark:text-zinc-100 font-bold'
+                                      : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-zinc-400'
+                                  }`}
+                                >
+                                  {opt.count}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              );
+            })()}
           </div>
 
           {/* Quick Search & Tools on Far Right */}
           <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search..."
-                className="w-44 sm:w-52 pl-8 pr-7 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-[#151716] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
+            {/* Search */}
+            <div className="relative min-w-[190px] sm:w-56">
+              <div className="group relative flex items-center">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-slate-600 dark:group-focus-within:text-zinc-300 transition-colors pointer-events-none duration-200" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search..."
+                  className="w-full h-10 pl-9 pr-8 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-slate-400 dark:focus:border-white/20 focus:ring-2 focus:ring-slate-400/10 shadow-2xs hover:border-slate-300 dark:hover:border-white/20 transition-all duration-200"
+                />
+                <AnimatePresence>
+                  {searchQuery && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setCurrentPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-3 w-3" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             {/* Export */}
             <a
               href="/api/admin/export?type=prices"
-              download
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs whitespace-nowrap cursor-pointer"
+              download="LocalFarm-Price-Watch-Bulletin.pdf"
+              className="group inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-2xs active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
+              title="Export Commodity Price Watch & SRP Bulletin to Official PDF"
             >
-              <Download className="h-3.5 w-3.5 text-slate-400" />
+              <Download className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-zinc-200 group-hover:translate-y-0.5 transition-all duration-200" />
               <span>Export</span>
             </a>
 
@@ -426,20 +521,20 @@ export function AdminPriceWatch() {
               type="button"
               onClick={handleBroadcastBulletin}
               disabled={isBroadcasting || commodities.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 text-[#237227] dark:text-emerald-400 text-xs font-semibold shadow-2xs whitespace-nowrap transition-all cursor-pointer disabled:opacity-50"
+              className="group inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-emerald-300/80 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-2xs active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none disabled:opacity-50"
               title="Broadcast current SRP Bulletin to all farmers"
             >
-              <Megaphone className="h-3.5 w-3.5" />
+              <Megaphone className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-200" />
               <span className="hidden md:inline">{isBroadcasting ? 'Broadcasting...' : 'Broadcast'}</span>
             </button>
 
-            {/* + Publish SRP with Primary Palette */}
+            {/* Publish SRP */}
             <button
               type="button"
               onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold shadow-xs whitespace-nowrap transition-all cursor-pointer"
+              className="group inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-[#1b5e20] hover:bg-[#154d1a] active:bg-[#0f3813] text-white text-xs font-bold shadow-xs hover:shadow-md hover:shadow-emerald-950/20 active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300 ease-out" />
               <span>Publish SRP</span>
             </button>
           </div>

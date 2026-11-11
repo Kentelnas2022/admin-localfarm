@@ -1592,15 +1592,16 @@ export function AdminSettings({ adminEmail = 'admin@localfarm.com', onAdminAccou
                 <span>{isClearingAllLogs ? 'Clearing...' : 'Clear Logs'}</span>
               </button>
 
-              {/* Export CSV Button */}
-              <button
-                type="button"
-                onClick={handleExportCSV}
+              {/* Export PDF Button */}
+              <a
+                href="/api/admin/export?type=logs"
+                download="LocalFarm-Activity-Audit-Trail.pdf"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-slate-700 dark:text-[#e4e6eb] text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                title="Export Activity Audit Trail to Official PDF"
               >
                 <Download className="h-3.5 w-3.5" />
-                <span>Export CSV</span>
-              </button>
+                <span>Export PDF</span>
+              </a>
               
               {/* Refresh Button */}
               <button

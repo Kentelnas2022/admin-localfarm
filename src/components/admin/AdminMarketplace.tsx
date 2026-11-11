@@ -553,14 +553,15 @@ export function AdminMarketplace() {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
             </div>
 
-            {/* Export CSV */}
+            {/* Export PDF */}
             <a
               href="/api/admin/export?type=posts"
-              download
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#1a1e1b] hover:bg-slate-50 dark:hover:bg-[#222723] text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+              download="LocalFarm-Produce-Listings.pdf"
+              className="group inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-2xs active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
+              title="Export Marketplace Produce Listings to Official PDF"
             >
-              <Download className="h-3.5 w-3.5 text-slate-400" />
-              <span>Export CSV</span>
+              <Download className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-zinc-200 group-hover:translate-y-0.5 transition-all duration-200" />
+              <span>Export</span>
             </a>
           </div>
 

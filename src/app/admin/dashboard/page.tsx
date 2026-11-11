@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminDashboardOverview } from '@/components/admin/AdminDashboardOverview';
 import { 
@@ -107,6 +108,29 @@ export default function AdminDashboardPage() {
   const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
   const [adminPwdStatus, setAdminPwdStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isAdminUpdatingPwd, setIsAdminUpdatingPwd] = useState(false);
+  const [isMemberFilterOpen, setIsMemberFilterOpen] = useState(false);
+  const memberFilterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (memberFilterRef.current && !memberFilterRef.current.contains(event.target as Node)) {
+        setIsMemberFilterOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMemberFilterOpen(false);
+      }
+    };
+    if (isMemberFilterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMemberFilterOpen]);
 
   // RBAC Role & Allowed Tabs Definition
   // Strictly enforce: ONLY super_admin (and system admin) have access to 'users' (Users Directory)
@@ -601,7 +625,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Right Controls: Live Alerts Bell + Night / Light Mode Toggle */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <div className="relative" ref={notifDropdownRef}>
               <button
                 type="button"
@@ -610,114 +634,168 @@ export default function AdminDashboardPage() {
                   setIsNotifOpen(next);
                   if (next) refreshActionQueue(true);
                 }}
-                className="relative p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all cursor-pointer shadow-2xs"
+                className={`relative inline-flex items-center justify-center h-10 w-10 rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs active:scale-[0.97] ${
+                  isNotifOpen
+                    ? 'border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-[#202420] text-slate-900 dark:text-white'
+                    : 'border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
                 title="Admin Action Alerts"
                 aria-label="Admin Action Queue Notifications"
+                aria-expanded={isNotifOpen}
               >
-                <Bell className="h-4 w-4" />
+                <Bell className="h-4 w-4 text-slate-600 dark:text-zinc-300 transition-transform duration-200" />
                 {totalQueueAlerts > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs border-2 border-white dark:border-[#181a18] animate-in zoom-in-50 duration-200">
                     {totalQueueAlerts}
                   </span>
                 )}
               </button>
 
-              {isNotifOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-2xl shadow-xl z-50 p-3 space-y-2 animate-fade-in">
-                  <div className="flex items-center justify-between px-2 py-1 border-b border-slate-100 dark:border-[#393a3b]">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">Live Admin Action Queue</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsAudioMuted(!isAudioMuted)}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
-                        title={isAudioMuted ? "Unmute sound chime" : "Mute sound chime"}
-                      >
-                        {isAudioMuted ? <VolumeX className="h-3.5 w-3.5 text-rose-500" /> : <Volume2 className="h-3.5 w-3.5" />}
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setIsNotifOpen(false)} 
-                        className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                  {allowedTabs.includes('verification') && (
-                    <button
-                      type="button"
-                      onClick={handleOpenVerificationQueue}
-                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
-                        <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Pending RSBSA Verifications</div>
-                          <div className="text-[11px] text-slate-400">Farmers awaiting PhilGAP / RSBSA review</div>
-                        </div>
+              <AnimatePresence>
+                {isNotifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute right-0 mt-2.5 w-84 sm:w-92 bg-white/95 dark:bg-[#181a18]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-black/50 z-50 p-2 space-y-1 overflow-hidden"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 dark:border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600 dark:bg-emerald-500"></span>
+                        </span>
+                        <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 tracking-tight">
+                          Live Action Queue
+                        </span>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 text-xs font-bold">
-                        {pendingVerifications}
-                      </span>
-                    </button>
-                  )}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsAudioMuted(!isAudioMuted)}
+                          className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 flex items-center justify-center transition-all cursor-pointer"
+                          title={isAudioMuted ? "Unmute audio chime" : "Mute audio chime"}
+                        >
+                          {isAudioMuted ? <VolumeX className="h-3.5 w-3.5 text-rose-500" /> : <Volume2 className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsNotifOpen(false)}
+                          className="h-7 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 text-xs font-medium transition-all cursor-pointer"
+                          title="Close notification queue"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
 
-                  {allowedTabs.includes('reports') && (
-                    <>
+                    {/* Verification Queue */}
+                    {allowedTabs.includes('verification') && (
                       <button
                         type="button"
-                        onClick={handleOpenModerationQueue}
-                        className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
+                        onClick={handleOpenVerificationQueue}
+                        className="group w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent hover:border-slate-200/60 dark:hover:border-white/10 text-left transition-all duration-150 cursor-pointer active:scale-[0.99]"
                       >
-                        <div className="flex items-center gap-2.5">
-                          <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
-                          <div>
-                            <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Pending Moderation Reports</div>
-                            <div className="text-[11px] text-slate-400">Chat & content tickets needing action</div>
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                            <ShieldCheck className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-slate-800 dark:text-zinc-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                              Pending RSBSA Verifications
+                            </div>
+                            <div className="text-[11px] text-slate-400 dark:text-zinc-400 truncate">
+                              Farmers awaiting PhilGAP / RSBSA review
+                            </div>
                           </div>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-xs font-bold">
-                          {pendingReports}
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-mono font-semibold shrink-0 transition-colors ${
+                          pendingVerifications > 0
+                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                            : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-zinc-500 border border-slate-200/60 dark:border-white/5'
+                        }`}>
+                          {pendingVerifications}
                         </span>
                       </button>
-                      {recentPendingReports.length > 0 && (
-                        <div 
-                          onClick={handleOpenModerationQueue}
-                          className="mx-1 px-2.5 py-1.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 text-[10px] text-rose-700 dark:text-rose-300 flex items-center justify-between cursor-pointer hover:bg-rose-100/70 dark:hover:bg-rose-900/40 transition-colors"
-                          title="Inspect latest priority moderation case"
-                        >
-                          <span className="truncate">Urgent: {recentPendingReports[0].report_code || 'Case'} · {recentPendingReports[0].reason || 'Review'}</span>
-                          <span className="font-bold shrink-0 ml-1">Inspect →</span>
-                        </div>
-                      )}
-                    </>
-                  )}
+                    )}
 
-                  {allowedTabs.includes('prices') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('prices');
-                        setIsNotifOpen(false);
-                        mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-left transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <TrendingUp className="h-4 w-4 text-emerald-500 shrink-0" />
-                        <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Marketplace Bantay Presyo</div>
-                          <div className="text-[11px] text-slate-400">DA SRP price index & commodity volatility monitoring</div>
+                    {/* Moderation Queue */}
+                    {allowedTabs.includes('reports') && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleOpenModerationQueue}
+                          className="group w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent hover:border-slate-200/60 dark:hover:border-white/10 text-left transition-all duration-150 cursor-pointer active:scale-[0.99]"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 pr-2">
+                            <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                              <AlertTriangle className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-slate-800 dark:text-zinc-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                                Pending Moderation Reports
+                              </div>
+                              <div className="text-[11px] text-slate-400 dark:text-zinc-400 truncate">
+                                Chat & content tickets needing action
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-mono font-semibold shrink-0 transition-colors ${
+                            pendingReports > 0
+                              ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                              : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-zinc-500 border border-slate-200/60 dark:border-white/5'
+                          }`}>
+                            {pendingReports}
+                          </span>
+                        </button>
+                        {recentPendingReports.length > 0 && (
+                          <div 
+                            onClick={handleOpenModerationQueue}
+                            className="mx-1 px-3 py-1.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 text-[11px] text-rose-700 dark:text-rose-300 flex items-center justify-between cursor-pointer hover:bg-rose-100/70 dark:hover:bg-rose-900/50 transition-all"
+                            title="Inspect latest priority moderation case"
+                          >
+                            <span className="truncate font-medium">Urgent: {recentPendingReports[0].report_code || 'Case'} · {recentPendingReports[0].reason || 'Review'}</span>
+                            <span className="font-semibold text-xs shrink-0 ml-1.5 flex items-center gap-0.5">Inspect →</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Price Watch / Bantay Presyo */}
+                    {allowedTabs.includes('prices') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('prices');
+                          setIsNotifOpen(false);
+                          mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="group w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent hover:border-slate-200/60 dark:hover:border-white/10 text-left transition-all duration-150 cursor-pointer active:scale-[0.99]"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                            <TrendingUp className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-slate-800 dark:text-zinc-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors truncate">
+                              Marketplace Bantay Presyo
+                            </div>
+                            <div className="text-[11px] text-slate-400 dark:text-zinc-400 truncate">
+                              DA SRP price index & commodity monitoring
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
-                        Live
-                      </span>
-                    </button>
-                  )}
-                </div>
-              )}
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 animate-pulse" />
+                          Live
+                        </span>
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <ThemeHeaderToggle />
@@ -780,12 +858,12 @@ export default function AdminDashboardPage() {
           {activeTab === 'users' && (
             isSuperAdmin ? (
               <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
-                {/* 1. TOP HEADER BAR (MATCHING REFERENCE IMAGE) */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  {/* Community Members Filter Dropdown (Exact match to reference UI) */}
-                  <div className="relative inline-flex items-center">
-                    <select
-                      value={
+                {/* 1. TOP HEADER BAR: Foolish Minimalism & Premium Elegance (Matching Reference UI) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3.5">
+                  {/* Community Members Filter Custom Animated Dropdown */}
+                  <div ref={memberFilterRef} className="relative inline-flex items-center">
+                    {(() => {
+                      const activeFilterKey =
                         userStatusFilter === 'pending'
                           ? 'pending'
                           : userStatusFilter === 'suspended'
@@ -794,98 +872,171 @@ export default function AdminDashboardPage() {
                           ? 'farmers'
                           : userRoleFilter === 'staff'
                           ? 'staff'
-                          : 'all'
-                      }
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === 'all') {
-                          setUserRoleFilter('all');
-                          setUserStatusFilter('all');
-                        } else if (val === 'farmers') {
-                          setUserRoleFilter('community');
-                          setUserStatusFilter('all');
-                        } else if (val === 'staff') {
-                          setUserRoleFilter('staff');
-                          setUserStatusFilter('all');
-                        } else if (val === 'pending') {
-                          setUserRoleFilter('all');
-                          setUserStatusFilter('pending');
-                        } else if (val === 'suspended') {
-                          setUserRoleFilter('all');
-                          setUserStatusFilter('suspended');
-                        }
-                        setCurrentPage(1);
-                      }}
-                      aria-label="Filter community members"
-                      className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-                    >
-                      <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                        All members ({userStats.total})
-                      </option>
-                      <option value="farmers" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                        Farmers & Community ({userStats.community})
-                      </option>
-                      <option value="staff" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                        Staff & Admins ({userStats.staff})
-                      </option>
-                      <option value="pending" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                        Pending Review ({userStats.pending})
-                      </option>
-                      <option value="suspended" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                        Restricted Accounts ({userStats.suspended})
-                      </option>
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
+                          : 'all';
+
+                      const filterOptions = [
+                        { key: 'all', label: 'All members', count: userStats.total },
+                        { key: 'farmers', label: 'Farmers & Community', count: userStats.community },
+                        { key: 'staff', label: 'Staff & Admins', count: userStats.staff },
+                        { key: 'pending', label: 'Pending Review', count: userStats.pending },
+                        { key: 'suspended', label: 'Restricted Accounts', count: userStats.suspended },
+                      ];
+
+                      const currentOption = filterOptions.find((o) => o.key === activeFilterKey) || filterOptions[0];
+
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsMemberFilterOpen((prev) => !prev)}
+                            aria-expanded={isMemberFilterOpen}
+                            aria-haspopup="listbox"
+                            aria-label="Filter community members"
+                            className="group inline-flex items-center gap-2 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 active:scale-[0.98] text-slate-800 dark:text-zinc-100 font-semibold text-xs sm:text-sm transition-all duration-200 cursor-pointer select-none shadow-2xs"
+                          >
+                            <span>
+                              {currentOption.label} ({currentOption.count})
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 text-slate-400 dark:text-zinc-400 group-hover:text-slate-600 dark:group-hover:text-zinc-200 transition-transform duration-250 ease-out ${
+                                isMemberFilterOpen ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </button>
+
+                          <AnimatePresence>
+                            {isMemberFilterOpen && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                                className="absolute left-0 top-full mt-2 w-64 p-1.5 rounded-2xl bg-white/95 dark:bg-[#181a18]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-xl shadow-slate-900/10 dark:shadow-black/50 z-50 overflow-hidden"
+                              >
+                                <div className="space-y-0.5" role="listbox">
+                                  {filterOptions.map((opt) => {
+                                    const isSelected = activeFilterKey === opt.key;
+                                    return (
+                                      <button
+                                        key={opt.key}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={isSelected}
+                                        onClick={() => {
+                                          if (opt.key === 'all') {
+                                            setUserRoleFilter('all');
+                                            setUserStatusFilter('all');
+                                          } else if (opt.key === 'farmers') {
+                                            setUserRoleFilter('community');
+                                            setUserStatusFilter('all');
+                                          } else if (opt.key === 'staff') {
+                                            setUserRoleFilter('staff');
+                                            setUserStatusFilter('all');
+                                          } else if (opt.key === 'pending') {
+                                            setUserRoleFilter('all');
+                                            setUserStatusFilter('pending');
+                                          } else if (opt.key === 'suspended') {
+                                            setUserRoleFilter('all');
+                                            setUserStatusFilter('suspended');
+                                          }
+                                          setCurrentPage(1);
+                                          setIsMemberFilterOpen(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all duration-150 cursor-pointer ${
+                                          isSelected
+                                            ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white font-semibold'
+                                            : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100/70 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white font-medium'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <div
+                                            className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                                              isSelected ? 'bg-emerald-600 scale-100' : 'bg-transparent scale-0'
+                                            }`}
+                                          />
+                                          <span>{opt.label}</span>
+                                        </div>
+                                        <span
+                                          className={`text-[10px] px-2 py-0.5 rounded-md font-mono ${
+                                            isSelected
+                                              ? 'bg-slate-200/80 dark:bg-white/15 text-slate-900 dark:text-zinc-100 font-bold'
+                                              : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-zinc-400'
+                                          }`}
+                                        >
+                                          {opt.count}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </>
+                      );
+                    })()}
                   </div>
 
-                  {/* Right Side Tools: Pill Search, Export, + Add User */}
+                  {/* Right Side Tools: Search, Export, + Add User */}
                   <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-                    {/* Pill Search */}
-                    <div className="relative min-w-[190px] sm:w-60">
-                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        value={searchUser}
-                        onChange={(e) => {
-                          setSearchUser(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        placeholder="Search members..."
-                        className="w-full pl-9 pr-7 py-1.5 text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] transition-all"
-                      />
-                      {searchUser && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchUser('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
+                    {/* Search */}
+                    <div className="relative min-w-[190px] sm:w-56">
+                      <div className="group relative flex items-center">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-slate-600 dark:group-focus-within:text-zinc-300 transition-colors pointer-events-none duration-200" />
+                        <input
+                          type="text"
+                          value={searchUser}
+                          onChange={(e) => {
+                            setSearchUser(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          placeholder="Search..."
+                          className="w-full h-10 pl-9 pr-8 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-slate-400 dark:focus:border-white/20 focus:ring-2 focus:ring-slate-400/10 shadow-2xs hover:border-slate-300 dark:hover:border-white/20 transition-all duration-200"
+                        />
+                        <AnimatePresence>
+                          {searchUser && (
+                            <motion.button
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.15 }}
+                              type="button"
+                              onClick={() => {
+                                setSearchUser('');
+                                setCurrentPage(1);
+                              }}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                              aria-label="Clear search"
+                            >
+                              <X className="h-3 w-3" />
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </div>
 
                     {/* Export */}
                     <a
-                      href="/api/admin/export?type=farmers"
-                      download="users_directory.csv"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
-                      title="Export Users to CSV"
+                      href="/api/admin/export?type=users"
+                      download="LocalFarm-Members-Directory.pdf"
+                      className="group inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-2xs active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
+                      title="Export Members Directory to Official PDF"
                     >
-                      <Download className="h-3.5 w-3.5 text-slate-400" />
+                      <Download className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-zinc-200 group-hover:translate-y-0.5 transition-all duration-200" />
                       <span>Export</span>
                     </a>
 
-                    {/* + Add User */}
+                    {/* Add User */}
                     <button
                       type="button"
                       onClick={() => {
                         setCreateUserError('');
                         setIsCreateUserModalOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#237227] hover:bg-[#1c5c1f] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+                      className="group inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-[#1b5e20] hover:bg-[#154d1a] active:bg-[#0f3813] text-white text-xs font-bold shadow-xs hover:shadow-md hover:shadow-emerald-950/20 active:scale-[0.97] transition-all duration-200 whitespace-nowrap cursor-pointer select-none"
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>+ Add User</span>
+                      <Plus className="h-3.5 w-3.5 group-hover:rotate-90 transition-transform duration-300 ease-out" />
+                      <span>Add User</span>
                     </button>
                   </div>
                 </div>
@@ -1545,18 +1696,18 @@ function ThemeHeaderToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all cursor-pointer shadow-2xs"
+      className="inline-flex items-center gap-2 h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] hover:bg-slate-50 dark:hover:bg-[#202420] hover:border-slate-300 dark:hover:border-white/20 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold shadow-2xs active:scale-[0.97] transition-all duration-200 cursor-pointer select-none"
       title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Night Mode"}
     >
       {theme === 'dark' ? (
         <>
           <Sun className="h-4 w-4 text-amber-400" />
-          <span className="hidden sm:inline">Light Mode</span>
+          <span className="hidden sm:inline">Light</span>
         </>
       ) : (
         <>
-          <Moon className="h-4 w-4 text-indigo-600" />
-          <span className="hidden sm:inline">Night Mode</span>
+          <Moon className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
+          <span className="hidden sm:inline">Night</span>
         </>
       )}
     </button>

@@ -175,7 +175,7 @@ export function AdminSidebar({
   return (
     <aside className={'farm-sidebar ' + (isCollapsed ? 'is-collapsed' : '')} aria-label="Administration sidebar">
       <div className="sidebar-brand">
-        {!isCollapsed && <span className="sidebar-wordmark">LocalFarm<span className="brand-dot"/></span>}
+        {!isCollapsed && <span className="sidebar-wordmark">LocalFarm</span>}
         <button type="button" className="sidebar-toggle" onClick={onToggleCollapse} aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!isCollapsed} title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}><Menu size={19} strokeWidth={1.6}/></button>
       </div>
       <nav className="sidebar-navigation" aria-label="Admin navigation">
@@ -201,10 +201,15 @@ export function AdminSidebar({
       </nav>
       <div className="sidebar-account">
         <div className="sidebar-profile" title={adminEmail}>
-          <div className="sidebar-avatar" aria-hidden="true">{adminEmail.slice(0,2).toUpperCase()}</div>
-          {!isCollapsed && <div className="sidebar-identity"><span>{roleLabel}</span><small title={adminEmail}>{adminEmail}</small></div>}
+          <div className="sidebar-avatar" aria-hidden="true">{adminEmail.slice(0, 2).toUpperCase()}</div>
+          {!isCollapsed && (
+            <div className="sidebar-identity">
+              <span className="sidebar-role-label">{roleLabel}</span>
+              <small className="sidebar-email-label" title={adminEmail}>{adminEmail}</small>
+            </div>
+          )}
         </div>
-        <button type="button" className="sidebar-signout" onClick={onLogout} aria-label="Sign out" title={isCollapsed ? 'Sign out' : undefined}><LogOut size={17} strokeWidth={1.6}/>{!isCollapsed && <span>Sign out</span>}</button>
+        <button type="button" className="sidebar-signout" onClick={onLogout} aria-label="Sign out" title={isCollapsed ? 'Sign out' : undefined}><LogOut size={16} strokeWidth={1.6}/>{!isCollapsed && <span>Sign out</span>}</button>
       </div>
     </aside>
   );
