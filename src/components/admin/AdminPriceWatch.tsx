@@ -20,6 +20,10 @@ import {
   Scale,
   Building2,
   HelpCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Check,
   Megaphone
 } from 'lucide-react';
 
@@ -52,6 +56,28 @@ export function AdminPriceWatch() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [trendFilter, setTrendFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [activeActionId, setActiveActionId] = useState<number | null>(null);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === paginatedCommodities.length && paginatedCommodities.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedCommodities.map(c => c.id)));
+    }
+  }
 
   // Modals & Action States
   const [editingItem, setEditingItem] = useState<CommodityItem | null>(null);
@@ -244,42 +270,55 @@ export function AdminPriceWatch() {
     setFormNotes('');
   }
 
-  // Trend Badge Component
+  // Minimalist Trend Badge matching Reference Image style (Pill with dot indicator)
   function TrendBadge({ trend, change }: { trend: string; change: string }) {
     if (trend === 'alert') {
       return (
-        <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60">
-          <AlertTriangle className="h-3 w-3" />
+        <span data-price-trend={trend} className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
           <span>Hike {change}</span>
         </span>
       );
     }
     if (trend === 'increasing') {
       return (
-        <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60">
-          <TrendingUp className="h-3 w-3" />
+        <span data-price-trend={trend} className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
           <span>Rising {change}</span>
         </span>
       );
     }
     if (trend === 'decreasing') {
       return (
-        <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">
-          <TrendingDown className="h-3 w-3" />
+        <span data-price-trend={trend} className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/60 whitespace-nowrap">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
           <span>Easing {change}</span>
         </span>
       );
     }
     return (
-      <span data-price-trend={trend} className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#237227] dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-        <Minus className="h-3 w-3" />
+      <span data-price-trend={trend} className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#237227] dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 whitespace-nowrap">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
         <span>Stable {change}</span>
       </span>
     );
   }
 
+  const totalItems = commodities.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const paginatedCommodities = commodities.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const categoryCounts = {
+    all: commodities.length,
+    Vegetables: commodities.filter(c => c.category === 'Vegetables').length,
+    Fruits: commodities.filter(c => c.category === 'Fruits').length,
+    'Grains & Rice': commodities.filter(c => c.category === 'Grains & Rice').length,
+    'Fish & Aquaculture': commodities.filter(c => c.category === 'Fish & Aquaculture').length,
+    'Commercial Crops': commodities.filter(c => c.category === 'Commercial Crops').length,
+  };
+
   return (
-    <div className="price-directory members-directory space-y-6">
+    <div className="admin-communications price-directory members-directory space-y-6">
 
       {/* Toast Alert */}
       {mounted && toast && createPortal(
@@ -309,174 +348,383 @@ export function AdminPriceWatch() {
         </article>)}
       </div>
 
-      {/* =========== 2. TOOLBAR =========== */}
-      <div className="members-toolbar bg-white dark:bg-[#242526] rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-[#393a3b] shadow-xs space-y-4">
-        <div className="members-toolbar-layout flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          
-          {/* Search bar */}
-          <div className="members-search relative flex-1 w-full md:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 dark:text-[#8a8d91]" />
-            <input
-              type="text"
-              aria-label="Search price benchmarks" value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search commodity name, trading source, or notes..."
-              className="w-full pl-11 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-[#3a3b3c] outline-none focus:border-[#237227] dark:focus:border-emerald-500 bg-slate-50/60 dark:bg-[#18191a] focus:bg-white dark:focus:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] placeholder:text-slate-400 transition-all"
-            />
+      {/* =========== 2. PRICE BENCHMARKS UNIFIED TABLE (MATCHING REFERENCE IMAGE) =========== */}
+      <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
+        
+        {/* Top Dropdown Selection & Tools (No dragging slide / scrollbar) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+          {/* Produce Category Dropdown (Exact match to reference UI) */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter by produce category"
+              className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
+            >
+              <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                All benchmarks ({categoryCounts.all})
+              </option>
+              <option value="Vegetables" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Vegetables ({categoryCounts.Vegetables})
+              </option>
+              <option value="Fruits" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Fruits ({categoryCounts.Fruits})
+              </option>
+              <option value="Grains & Rice" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Grains & Rice ({categoryCounts['Grains & Rice']})
+              </option>
+              <option value="Fish & Aquaculture" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Aquaculture ({categoryCounts['Fish & Aquaculture']})
+              </option>
+              <option value="Commercial Crops" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Commercial Crops ({categoryCounts['Commercial Crops']})
+              </option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
           </div>
 
-          <div className="members-controls flex items-center gap-3 w-full md:w-auto flex-wrap">
-            {/* Category Filter */}
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#18191a] border border-slate-200 dark:border-[#3a3b3c] rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 dark:text-[#b0b3b8]">
-              <select
-                aria-label="Filter commodity category" value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="bg-transparent outline-none cursor-pointer text-slate-900 dark:text-[#e4e6eb]"
-              >
-                <option value="all" className="dark:bg-[#242526]">All Categories</option>
-                <option value="Vegetables" className="dark:bg-[#242526]">Vegetables</option>
-                <option value="Fruits" className="dark:bg-[#242526]">Fruits</option>
-                <option value="Grains & Rice" className="dark:bg-[#242526]">Grains & Rice</option>
-                <option value="Fish & Aquaculture" className="dark:bg-[#242526]">Fish & Aquaculture</option>
-                <option value="Herbs & Spices" className="dark:bg-[#242526]">Herbs & Spices</option>
-              </select>
+          {/* Quick Search & Tools on Far Right */}
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search..."
+                className="w-44 sm:w-52 pl-8 pr-7 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-[#151716] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
 
-            {/* CSV Download */}
+            {/* Export */}
             <a
               href="/api/admin/export?type=prices"
               download
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-slate-700 dark:text-[#e4e6eb] text-xs font-bold transition-all shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs whitespace-nowrap cursor-pointer"
             >
-              <Download className="h-3.5 w-3.5 text-slate-500" />
-              <span>Export CSV</span>
+              <Download className="h-3.5 w-3.5 text-slate-400" />
+              <span>Export</span>
             </a>
 
-            {/* Broadcast SRP Bulletin to Mobile App */}
+            {/* Broadcast Bulletin */}
             <button
               type="button"
               onClick={handleBroadcastBulletin}
               disabled={isBroadcasting || commodities.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 text-[#237227] dark:text-emerald-400 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
-              data-price-broadcast="true" title="Broadcast current SRP Price Bulletin to all farmers via mobile announcements"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100 text-[#237227] dark:text-emerald-400 text-xs font-semibold shadow-2xs whitespace-nowrap transition-all cursor-pointer disabled:opacity-50"
+              title="Broadcast current SRP Bulletin to all farmers"
             >
               <Megaphone className="h-3.5 w-3.5" />
-              <span>{isBroadcasting ? 'Broadcasting...' : 'Broadcast Bulletin'}</span>
+              <span className="hidden md:inline">{isBroadcasting ? 'Broadcasting...' : 'Broadcast'}</span>
             </button>
 
-            {/* Add Benchmark Button */}
+            {/* + Publish SRP with Primary Palette */}
             <button
               type="button"
               onClick={() => setIsAddModalOpen(true)}
-              className="members-add inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#237227] hover:bg-[#1b5e20] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold shadow-xs whitespace-nowrap transition-all cursor-pointer"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
               <span>Publish SRP</span>
             </button>
           </div>
-
         </div>
-      </div>
 
-      {/* =========== 3. PRICE TABLE =========== */}
-      <div className="members-table-panel bg-white dark:bg-[#242526] rounded-2xl border border-slate-200/80 dark:border-[#393a3b] shadow-xs overflow-hidden">
-        <div className="members-table-heading"><div><h2>Commodity prices</h2><p>Trading ranges and suggested retail prices.</p></div><span>{commodities.length} benchmarks</span></div>
-        <div className="overflow-x-auto">
-          <table aria-label="Commodity price benchmarks" className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
-            <thead className="border-b border-slate-200 dark:border-[#393a3b] text-slate-500 dark:text-[#8a8d91] font-bold uppercase text-[11px] tracking-wider bg-slate-50/60 dark:bg-[#1a1b1c]">
-              <tr>
-                <th className="py-4 px-5">Commodity & Produce</th>
-                <th className="py-4 px-5">Category</th>
-                <th className="py-4 px-5">Trading Price Band</th>
-                <th className="py-4 px-5">Suggested SRP</th>
-                <th className="py-4 px-5">Market Trend</th>
-                <th className="py-4 px-5">Benchmark Source</th>
-                <th className="py-4 px-5">Harvest Guidance</th>
-                <th className="py-4 px-5 text-right">Actions</th>
+        {/* Batch Selection Action Bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-farm-50/70 dark:bg-farm-950/40 border border-farm-200/80 dark:border-farm-900/60 shadow-xs text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white">
+              <span className="h-2 w-2 rounded-full bg-[#237227] animate-pulse" />
+              <span>{selectedIds.size} {selectedIds.size === 1 ? 'benchmark' : 'benchmarks'} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium text-xs px-2 py-1 cursor-pointer transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Minimalist Floating Card Row Table */}
+        <div className="overflow-x-auto min-h-[440px]">
+          <table className="w-full text-left text-xs border-separate border-spacing-y-2">
+            <thead>
+              <tr className="bg-[#f8f9fa] dark:bg-[#181b19] text-slate-400 dark:text-slate-500 font-medium text-[11px] tracking-tight">
+                <th className="py-3 pl-4 pr-1 first:rounded-l-xl w-10">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    aria-label={selectedIds.size === paginatedCommodities.length ? 'Deselect all' : 'Select all'}
+                    className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                      selectedIds.size > 0
+                        ? 'bg-[#237227] text-white shadow-2xs'
+                        : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                    }`}
+                  >
+                    {selectedIds.size === paginatedCommodities.length && paginatedCommodities.length > 0 ? (
+                      <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    ) : null}
+                  </button>
+                </th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">ID No.</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Commodity / Produce</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Category</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Trading Price Band</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Suggested SRP</th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">Market Trend</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Benchmark Source</th>
+                <th className="py-3 px-4 text-right font-medium last:rounded-r-xl whitespace-nowrap w-28 min-w-[112px] max-w-[112px]">Actions</th>
               </tr>
             </thead>
 
-            <tbody key={JSON.stringify([searchQuery,categoryFilter,trendFilter,isLoading])} className={`price-results divide-y divide-slate-100 dark:divide-[#2f3031] ${isLoading ? 'is-loading' : ''}`} aria-busy={isLoading}>
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center text-sm text-slate-400">
-                    <div className="flex items-center justify-center gap-2">
-                      <RefreshCw className="h-5 w-5 animate-spin text-[#237227]" />
-                      <span>Loading price benchmarks…</span>
+                  <td colSpan={9} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <RefreshCw className="h-6 w-6 animate-spin text-[#237227]" />
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">Loading price benchmarks...</span>
                     </div>
                   </td>
                 </tr>
               ) : commodities.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-20 text-center text-sm text-slate-400">
-                    No commodity price benchmarks match your search.
+                  <td colSpan={9} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <BadgeDollarSign className="h-7 w-7 text-slate-300 dark:text-slate-600" />
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">No commodity benchmarks found</span>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                commodities.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-[#2a2b2c] transition-colors">
-                    <td className="py-4 px-5 font-bold text-slate-900 dark:text-[#e4e6eb] whitespace-nowrap">
-                      {item.commodity_name}
-                    </td>
+                paginatedCommodities.map((item, idx) => {
+                  const isChecked = selectedIds.has(item.id);
+                  const isMenuOpen = activeActionId === item.id;
+                  const itemIndex = (currentPage - 1) * pageSize + idx + 1;
 
-                    <td className="py-4 px-5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-[#18191a] text-slate-700 dark:text-[#b0b3b8] border border-slate-200 dark:border-[#393a3b]">
-                        {item.category}
-                      </span>
-                    </td>
-
-                    <td className="py-4 px-5 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                      ₱{Number(item.min_price).toFixed(2)} – ₱{Number(item.max_price).toFixed(2)} <span className="text-slate-400">/{item.unit}</span>
-                    </td>
-
-                    <td className="py-4 px-5 whitespace-nowrap">
-                      <span className="font-extrabold text-sm text-[#237227] dark:text-emerald-400 font-mono">
-                        ₱{Number(item.suggested_srp).toFixed(2)}
-                      </span>
-                      <span className="text-[11px] text-slate-400 font-normal ml-1">/{item.unit}</span>
-                    </td>
-
-                    <td className="py-4 px-5 whitespace-nowrap">
-                      <TrendBadge trend={item.price_trend} change={item.change_percentage} />
-                    </td>
-
-                    <td className="py-4 px-5 text-xs text-slate-600 dark:text-[#b0b3b8] whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                        <span>{item.market_source}</span>
-                      </div>
-                    </td>
-
-                    <td className="py-4 px-5 text-xs text-slate-500 max-w-[200px] truncate" title={item.notes || ''}>
-                      {item.notes || '—'}
-                    </td>
-
-                    <td className="py-4 px-5 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`group transition-all duration-150 ${
+                        isChecked
+                          ? 'shadow-[0_4px_16px_rgba(35,114,39,0.08)] ring-1 ring-[#237227]/30 dark:ring-emerald-400/30 rounded-2xl bg-farm-50/20 dark:bg-[#1a202c]'
+                          : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40 rounded-xl'
+                      }`}
+                    >
+                      {/* Checkbox: Round circle matching reference image */}
+                      <td className={`py-3.5 pl-4 pr-1 align-middle w-10 first:rounded-l-2xl ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
                         <button
                           type="button"
-                          onClick={() => setEditingItem(item)}
-                          className="p-1.5 rounded-lg border border-slate-200 dark:border-[#393a3b] hover:bg-slate-100 dark:hover:bg-[#3a3b3c] text-slate-600 dark:text-[#b0b3b8] transition-all cursor-pointer"
-                          title="Update Price"
+                          onClick={() => toggleSelect(item.id)}
+                          className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-[#237227] text-white shadow-2xs'
+                              : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                          }`}
                         >
-                          <Edit3 className="h-3.5 w-3.5" />
+                          {isChecked && <Check className="h-2.5 w-2.5 stroke-[3]" />}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id, item.commodity_name)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 transition-all cursor-pointer"
-                          title="Delete benchmark"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      {/* ID No. in muted monospace */}
+                      <td className={`py-3.5 px-3 align-middle font-mono text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        PRC-{String(item.id).padStart(3, '0')}
+                      </td>
+
+                      {/* Commodity / Produce (Bold title + notes preview) */}
+                      <td className={`py-3.5 px-4 align-middle max-w-[240px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                          {item.commodity_name}
+                        </div>
+                        {item.notes && (
+                          <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5" title={item.notes}>
+                            {item.notes}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Category Pill */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-[#18191a] text-slate-700 dark:text-[#b0b3b8] border border-slate-200 dark:border-[#393a3b]">
+                          {item.category}
+                        </span>
+                      </td>
+
+                      {/* Trading Price Band */}
+                      <td className={`py-3.5 px-4 align-middle font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        ₱{Number(item.min_price).toFixed(2)} – ₱{Number(item.max_price).toFixed(2)} <span className="text-slate-400 font-sans text-[11px]">/{item.unit}</span>
+                      </td>
+
+                      {/* Suggested SRP */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <span className="font-bold text-xs text-[#237227] dark:text-emerald-400 font-mono">
+                          ₱{Number(item.suggested_srp).toFixed(2)}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-normal ml-1">/{item.unit}</span>
+                      </td>
+
+                      {/* Market Trend (Pill with dot indicator) */}
+                      <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <TrendBadge trend={item.price_trend} change={item.change_percentage} />
+                      </td>
+
+                      {/* Benchmark Source */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap max-w-[200px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 truncate">
+                          <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{item.market_source}</span>
+                        </div>
+                      </td>
+
+                      {/* Actions: Fixed Position Trigger */}
+                      <td className={`py-3.5 px-4 text-right align-middle whitespace-nowrap last:rounded-r-2xl w-28 min-w-[112px] max-w-[112px] relative ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={() => setActiveActionId(isMenuOpen ? null : item.id)}
+                            className={`inline-flex items-center justify-center gap-1.5 w-24 px-2.5 py-1 rounded-lg border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+                              isMenuOpen
+                                ? 'border-[#237227] bg-farm-50 text-[#237227] dark:bg-farm-950/50 dark:text-emerald-400 dark:border-emerald-600'
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            <span>Actions</span>
+                            <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isMenuOpen ? 'rotate-180 text-[#237227]' : ''}`} />
+                          </button>
+
+                          {isMenuOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveActionId(null)} />
+                              <div className="absolute right-0 top-full mt-1.5 w-36 rounded-xl bg-white dark:bg-[#242526] border border-slate-200 dark:border-slate-700 shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionId(null);
+                                    setEditingItem(item);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5 text-slate-400" />
+                                  <span>Update Price</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionId(null);
+                                    handleDelete(item.id, item.commodity_name);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+
+        {/* 3. PAGINATION FOOTER (BELOW TABLE, MATCHING REFERENCE IMAGE) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div>
+              Showing <span className="font-semibold text-slate-800 dark:text-white">{totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-semibold text-slate-800 dark:text-white">{Math.min(currentPage * pageSize, totalItems)}</span> of{' '}
+              <span className="font-semibold text-slate-800 dark:text-white">{totalItems}</span> benchmarks
+            </div>
+            <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-700">
+              <span className="text-[11px] text-slate-400">Per page:</span>
+              {[10, 20, 50].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => {
+                    setPageSize(size);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                    pageSize === size
+                      ? 'bg-[#237227] text-white shadow-2xs'
+                      : 'border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage <= 1}
+              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="h-3.5 w-3.5 text-slate-500" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+              .map((page, idx, arr) => {
+                const prevPage = arr[idx - 1];
+                const showEllipsis = prevPage && page - prevPage > 1;
+
+                return (
+                  <React.Fragment key={page}>
+                    {showEllipsis && <span className="px-1 text-slate-400">...</span>}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        currentPage === page
+                          ? 'bg-[#237227] text-white shadow-2xs'
+                          : 'border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage >= totalPages}
+              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+            </button>
+          </div>
+        </div>
+
       </div>
 
       {/* =========== MODAL: ADD BENCHMARK =========== */}

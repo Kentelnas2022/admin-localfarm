@@ -1,5 +1,7 @@
 'use client';
 
+import './communications.css';
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
@@ -342,6 +344,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
   const [newUrl, setNewUrl] = useState('localfarm.app/chat/case');
   const [newSeverity, setNewSeverity] = useState<'low' | 'medium' | 'high'>('high');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -981,49 +984,38 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
   const endResult = Math.min(effectivePage * pageSize, currentTotal);
 
   return (
-    <div className="space-y-4">
+    <div className="admin-communications moderation-workspace space-y-6">
       {/* Main Container Card matching Reference Image */}
-      <div className="bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
+      <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
         
         {/* 1. TOP NAVIGATION TABS */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-          <div className="flex items-center gap-7 overflow-x-auto text-sm scrollbar-none">
-            {[
-              { id: 'all', label: 'All cases', count: stats.totalReports || currentTotal, active: filter === 'all' },
-              { id: 'pending', label: 'Pending Review', count: stats.pending ?? 61, active: filter === 'pending' },
-              { id: 'banned', label: 'Banned Accounts', count: stats.banned || stats.suspended || 27, active: filter === 'banned' },
-              { id: 'archived', label: 'Archive', count: stats.archived || 27, active: filter === 'archived' || filter === 'archive', icon: Archive },
-            ].map((tab) => {
-              const TabIcon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    setFilter(tab.id);
-                    setCurrentPage(1);
-                  }}
-                  className={`inline-flex items-center gap-2 pb-2 text-xs sm:text-sm transition-all relative whitespace-nowrap cursor-pointer ${
-                    tab.active
-                      ? 'text-[#237227] dark:text-emerald-400 font-bold'
-                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium'
-                  }`}
-                >
-                  {TabIcon && <TabIcon className="h-3.5 w-3.5" />}
-                  <span>{tab.label}</span>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                    tab.active 
-                      ? 'bg-farm-100 text-[#237227] dark:bg-emerald-950/80 dark:text-emerald-300' 
-                      : 'bg-[#f1f3f5] text-[#868e96] dark:bg-slate-800 dark:text-slate-400 font-semibold'
-                  }`}>
-                    {tab.count}
-                  </span>
-                  {tab.active && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#237227] dark:bg-emerald-400 rounded-full" />
-                  )}
-                </button>
-              );
-            })}
+          {/* Left: Dropdown Selection (No dragging slide / scrollbar) */}
+          {/* Moderation Cases Dropdown (Exact match to reference UI) */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter moderation cases"
+              className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
+            >
+              <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                All cases ({stats.totalReports || currentTotal})
+              </option>
+              <option value="pending" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Pending Review ({stats.pending ?? 61})
+              </option>
+              <option value="banned" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Banned Accounts ({stats.banned || stats.suspended || 27})
+              </option>
+              <option value="archived" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Archive ({stats.archived || 27})
+              </option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
           </div>
 
           {/* Quick Search & Tools on Far Right */}
@@ -1273,7 +1265,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
         {mounted && actionMenuState && createPortal(
           <>
             <div
-              className="fixed inset-0 z-[99990]"
+              className="admin-communications fixed inset-0 z-[99990]"
               onClick={() => setActionMenuState(null)}
             />
             <div
@@ -1461,7 +1453,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
       {mounted && suspendTargetReport && createPortal(
         <div
           onClick={() => setSuspendTargetReport(null)}
-          className="fixed inset-0 z-[100001] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
+          className="admin-communications fixed inset-0 z-[100001] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1768,132 +1760,50 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
       {/* MODAL B: REPORT EVIDENCE & INVESTIGATION DOSSIER (IMAGE 2 DRAWER UI)  */}
       {/* ===================================================================== */}
       {mounted && selectedReport && createPortal(
-        <>
-          {/* Backdrop Overlay */}
-          <div
-            onClick={() => setSelectedReport(null)}
-            className="fixed inset-0 z-[99998] bg-black/45 dark:bg-black/75 backdrop-blur-[2px] transition-opacity animate-fade-in"
-          />
-
-          {/* Right-Hand Slide-Over Sheet Drawer (Minimized Width, Full Height) */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="fixed inset-y-0 right-0 z-[99999] w-full max-w-md sm:max-w-[460px] bg-white dark:bg-[#1e1f23] rounded-l-[28px] sm:rounded-l-[32px] shadow-2xl flex flex-col justify-between overflow-hidden border-l border-slate-200/80 dark:border-[#343538] animate-in slide-in-from-right duration-300"
-          >
-            {/* Top Header Bar */}
-            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-[#323336]">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-[#e4e6eb]">
-                Activity Details
-              </h2>
-              <div className="flex items-center gap-2">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-[#2b2c30] text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200/80 dark:border-[#393a3b]">
-                  <Shield className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
-                  <span>Ticket {formatTicketNumber(selectedReport.report_code)}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedReport(null)}
-                  className="h-8 w-8 rounded-full hover:bg-slate-100 dark:hover:bg-[#2b2c30] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                  aria-label="Close details"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Case Overview Header */}
-            <div className="px-5 sm:px-6 pt-4 pb-3 border-b border-slate-100 dark:border-[#323336]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-[#e4e6eb] truncate">
-                    Case against {selectedReport.reported_user_name}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-[#8a8d91] capitalize mt-0.5">
-                    {selectedReport.report_type} Report • Filed on {selectedReport.date_reported}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <StatusBadge status={selectedReport.status} />
-                  <SeverityBadge severity={selectedReport.severity} />
-                </div>
-              </div>
-            </div>
-
-            {/* Scrollable Body Content (Unified Submitted Report & Highlighted Evidence) */}
-            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 space-y-4">
-              {/* 1. Parties Overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pb-4 border-b border-slate-100 dark:border-[#323336]">
-                {/* Complainant Card */}
-                <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#18191c] border border-slate-200/70 dark:border-[#2e2f33] space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Reported By (Complainant)
-                  </span>
-                  <div className="text-sm font-bold text-slate-900 dark:text-[#e4e6eb]">
-                    {selectedReport.reporter_name}
+        <div className="announcement-composer-backdrop" onClick={e => { if (e.target === e.currentTarget) setSelectedReport(null); }}>
+          <div className="admin-communications announcement-composer activity-details-modal case-review-modal" role="dialog" aria-modal="true" aria-labelledby="activity-details-title">
+            <header className="case-review-header">
+              <h2 id="activity-details-title">Activity details</h2>
+              <button type="button" className="composer-close" aria-label="Close details" onClick={() => setSelectedReport(null)}><X size={19} /></button>
+            </header>
+            <div className="case-review-layout">
+              <aside className="case-review-sidebar" aria-label="Case information">
+                <h3>Case information</h3>
+                <dl className="case-information-list">
+                  <div><dt>Ticket</dt><dd className="case-ticket-value">{formatTicketNumber(selectedReport.report_code)}</dd></div>
+                  <div><dt>Reported by</dt><dd>{selectedReport.reporter_name}</dd></div>
+                  <div>
+                    <dt>Reported account</dt>
+                    <dd>{selectedReport.reported_user_name}</dd>
+                    {evidenceData?.user?.username && <dd className="case-account-handle">@{evidenceData.user.username}</dd>}
+                    <dd className="case-account-state" data-restricted={selectedReport.status === 'banned' || (evidenceData?.user?.status || selectedReport.accused_user_status) === 'suspended'}>
+                      {selectedReport.status === 'banned' ? 'Banned' : (evidenceData?.user?.status || selectedReport.accused_user_status || 'Active')}
+                    </dd>
                   </div>
-                  <span className="text-[11px] text-slate-400 block">
-                    Complainant • Filed on {selectedReport.date_reported}
-                  </span>
-                </div>
-
-                {/* Accused Account Card */}
-                <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#18191c] border border-slate-200/70 dark:border-[#2e2f33] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                      Accused Account
-                    </span>
-                    <span
-                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 ${
-                        (evidenceData?.user?.status || selectedReport.accused_user_status) === 'suspended' || selectedReport.status === 'banned'
-                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50'
-                          : 'bg-emerald-50 dark:bg-emerald-950/40 text-[#237227] dark:text-emerald-400 border-emerald-200/70 dark:border-emerald-800/60'
-                      }`}
-                    >
-                      {selectedReport.status === 'banned'
-                        ? 'BANNED'
-                        : (evidenceData?.user?.status || selectedReport.accused_user_status || 'active').toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-[#e4e6eb]">
-                    {selectedReport.reported_user_name}
-                  </div>
-                  <span className="text-[11px] text-slate-400 block">
-                    {evidenceData?.user
-                      ? `@${evidenceData.user.username} • ${evidenceData.user.total_reports_received || 1} reports received`
-                      : `@${selectedReport.reported_user_name.toLowerCase().replace(/\s+/g, '')}`}
-                  </span>
-                </div>
-              </div>
-
-              {/* 2. Violation Reason & Statement */}
-              <div className="space-y-2 pb-4 border-b border-slate-100 dark:border-[#323336]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Violation Reason & Statement
-                  </span>
-                  <SeverityBadge severity={selectedReport.severity} />
-                </div>
-                <div className="text-sm font-bold text-slate-900 dark:text-[#e4e6eb]">
-                  {selectedReport.reason}
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#18191c] border-l-3 border-[#237227] text-xs text-slate-700 dark:text-[#c4c7cc] leading-relaxed">
-                  {selectedReport.statement}
-                </div>
-              </div>
-
+                  <div><dt>Report type</dt><dd>{selectedReport.report_type === 'content' ? 'Listing / Post' : selectedReport.report_type === 'chat' ? 'Direct chat' : 'Account'}</dd></div>
+                  <div><dt>Date filed</dt><dd>{selectedReport.date_reported}</dd></div>
+                  <div><dt>Case status</dt><dd className="case-information-status"><StatusBadge status={selectedReport.status} /><SeverityBadge severity={selectedReport.severity} /></dd></div>
+                </dl>
+              </aside>
+              <div className="case-review-content">
+                <section className="case-review-statement" aria-labelledby="case-reason-title">
+                  <span>Reported concern</span>
+                  <h3 id="case-reason-title">{selectedReport.reason}</h3>
+                  <p>{selectedReport.statement}</p>
+                </section>
               {/* 3. HIGHLIGHTED EVIDENCE & PROOF OF VIOLATION */}
-              <div className="space-y-3 pb-4 border-b border-slate-100 dark:border-[#323336]">
+              <div className="activity-evidence space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Shield className="h-3.5 w-3.5 text-[#237227] dark:text-emerald-400" />
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-[#e4e6eb]">
-                      Verified Evidence & Proof
+                      Attached evidence
                     </span>
                   </div>
                   <span className="text-[11px] text-slate-400">
                     {selectedReport.report_type === 'chat'
-                      ? `${evidenceData?.messages?.length || 0} messages logged`
-                      : 'Marketplace listing attached'}
+                      ? `${evidenceData?.messages?.length || 0} messages`
+                      : selectedReport.report_type === 'content' ? 'Listing' : 'Account report'}
                   </span>
                 </div>
 
@@ -1920,7 +1830,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                             <div className="flex items-center gap-1.5 mb-1 text-[10px]">
                               {isAccused ? (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 font-bold border border-rose-200 dark:border-rose-900/50">
-                                  ⚠️ Accused Evidence ({msg.sender_name || selectedReport.reported_user_name})
+                                  Reported account ({msg.sender_name || selectedReport.reported_user_name})
                                 </span>
                               ) : (
                                 <span className="font-semibold text-slate-600 dark:text-slate-400">
@@ -1966,7 +1876,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                         <div className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb]">
                           {evidenceData.post.full_name} (@{evidenceData.post.username})
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-3">
+                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
                           {evidenceData.post.content}
                         </p>
                       </div>
@@ -1979,7 +1889,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                         }
                         className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
                       >
-                        Remove Listing From Marketplace Feed
+                        Remove listing
                       </button>
                     </div>
                   </div>
@@ -1990,24 +1900,13 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                 )}
               </div>
 
-              {/* 4. Incident Reference */}
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <span>Incident Reference</span>
-                <a
-                  href={selectedReport.url.startsWith('http') ? selectedReport.url : `https://${selectedReport.url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-xs text-slate-600 dark:text-[#b0b3b8] hover:text-[#237227] hover:underline flex items-center gap-1.5"
-                >
-                  <span>{selectedReport.url}</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+
               </div>
             </div>
-
             {/* Sticky Action Footer */}
-            <div className="p-4 border-t border-slate-100 dark:border-[#323336] bg-white/95 dark:bg-[#1e1f23]/95 backdrop-blur-sm">
-              <div className="grid grid-cols-2 gap-2.5">
+            <div className="composer-footer activity-details-footer">
+              <button type="button" className="case-close-button" onClick={() => setSelectedReport(null)}>Close</button>
+              <div className="activity-details-actions">
                 <button
                   type="button"
                   onClick={() =>
@@ -2016,7 +1915,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                   className="inline-flex items-center justify-center gap-1.5 rounded-full border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 py-2.5 px-3 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] cursor-pointer"
                 >
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">Issue Policy Warning</span>
+                  <span className="truncate">Issue warning</span>
                 </button>
 
                 <button
@@ -2030,7 +1929,7 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
               </div>
             </div>
           </div>
-        </>,
+        </div>,
         document.body
       )}
 
@@ -2038,165 +1937,40 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
       {/* MODAL C: FILE NEW REPORT (IMAGE 2 SELECTION CARDS & CLEAN UI)        */}
       {/* ===================================================================== */}
       {mounted && isSimulateModalOpen && createPortal(
-        <div
-          onClick={() => setIsSimulateModalOpen(false)}
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#1e1f23] border border-slate-200/80 dark:border-[#323336] rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl my-auto animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto"
-          >
-            {/* Header (Image 2 style) */}
-            <div className="flex items-start justify-between pb-1">
-              <div>
-                <h3 className="font-extrabold text-slate-900 dark:text-[#e4e6eb] text-lg sm:text-xl">
-                  File Moderation Case
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  Choose who or what is being reported by selecting a report type.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSimulateModalOpen(false)}
-                className="p-1.5 -mr-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2b2c30] transition-colors cursor-pointer"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitNewReport} className="space-y-4 text-xs">
-              {/* Option Selection Cards (Direct Match to Image 2) */}
-              <div className="space-y-2.5">
-                {/* Option 1: Direct Chat */}
-                <div
-                  onClick={() => setNewReportType('chat')}
-                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3.5 ${
-                    newReportType === 'chat'
-                      ? 'border-[#237227] dark:border-emerald-500 bg-farm-50/40 dark:bg-farm-950/25 ring-1 ring-[#237227] dark:ring-emerald-500'
-                      : 'border-slate-200/90 dark:border-[#323336] bg-white dark:bg-[#25262a] hover:border-slate-300 dark:hover:border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                      newReportType === 'chat'
-                        ? 'bg-farm-100 dark:bg-farm-900/60 text-[#237227] dark:text-emerald-400'
-                        : 'bg-slate-100 dark:bg-[#323336] text-slate-500 dark:text-slate-400'
-                    }`}>
-                      <MessageSquare className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-bold text-sm text-slate-900 dark:text-[#e4e6eb]">
-                        Direct Chat
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        Private message conversation or buyer-seller negotiation.
-                      </div>
-                    </div>
+        <div className="announcement-composer-backdrop" onClick={e => { if (e.target === e.currentTarget) setIsSimulateModalOpen(false); }}>
+          <div className="admin-communications announcement-composer moderation-composer" role="dialog" aria-modal="true" aria-labelledby="case-composer-title">
+            <header className="composer-header">
+              <div><h2 id="case-composer-title">File moderation case</h2><p>Choose a report type, then add the details for review.</p></div>
+              <button type="button" className="composer-close" aria-label="Close moderation case" onClick={() => setIsSimulateModalOpen(false)}><X size={20} /></button>
+            </header>
+            <form onSubmit={handleSubmitNewReport} className="composer-form">
+              <div className="composer-layout">
+                <section className="composer-categories" aria-labelledby="case-type-heading">
+                  <div className="composer-section-heading"><h3 id="case-type-heading">Report type</h3></div>
+                  <div className="composer-category-list">
+                    {([
+                      { id: 'chat', label: 'Direct chat', description: 'Private messages or buyer–seller negotiations.', icon: MessageSquare },
+                      { id: 'content', label: 'Listing / Post', description: 'Produce listings, pricing, or post content.', icon: FileText },
+                      { id: 'user', label: 'User / Farmer account', description: 'Profile violations, impersonation, or platform abuse.', icon: User },
+                    ] as const).map(option => {
+                      const Icon = option.icon;
+                      return <button type="button" className="composer-category" key={option.id} aria-pressed={newReportType === option.id} onClick={() => setNewReportType(option.id)}>
+                        <span className="composer-category-icon"><Icon size={21} strokeWidth={1.6} /></span>
+                        <span><strong>{option.label}</strong><small>{option.description}</small></span>
+                        <span className="composer-radio" aria-hidden="true" />
+                      </button>;
+                    })}
                   </div>
-
-                  <div className="shrink-0">
-                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                      newReportType === 'chat'
-                        ? 'border-[#237227] dark:border-emerald-500'
-                        : 'border-slate-300 dark:border-slate-600'
-                    }`}>
-                      {newReportType === 'chat' && (
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#237227] dark:bg-emerald-500" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Option 2: Produce Listing / Post */}
-                <div
-                  onClick={() => setNewReportType('content')}
-                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3.5 ${
-                    newReportType === 'content'
-                      ? 'border-[#237227] dark:border-emerald-500 bg-farm-50/40 dark:bg-farm-950/25 ring-1 ring-[#237227] dark:ring-emerald-500'
-                      : 'border-slate-200/90 dark:border-[#323336] bg-white dark:bg-[#25262a] hover:border-slate-300 dark:hover:border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                      newReportType === 'content'
-                        ? 'bg-farm-100 dark:bg-farm-900/60 text-[#237227] dark:text-emerald-400'
-                        : 'bg-slate-100 dark:bg-[#323336] text-slate-500 dark:text-slate-400'
-                    }`}>
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-bold text-sm text-slate-900 dark:text-[#e4e6eb]">
-                        Listing / Post
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        Marketplace farm produce listing, pricing, or post content.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="shrink-0">
-                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                      newReportType === 'content'
-                        ? 'border-[#237227] dark:border-emerald-500'
-                        : 'border-slate-300 dark:border-slate-600'
-                    }`}>
-                      {newReportType === 'content' && (
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#237227] dark:bg-emerald-500" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Option 3: User / Farmer Account */}
-                <div
-                  onClick={() => setNewReportType('user')}
-                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3.5 ${
-                    newReportType === 'user'
-                      ? 'border-[#237227] dark:border-emerald-500 bg-farm-50/40 dark:bg-farm-950/25 ring-1 ring-[#237227] dark:ring-emerald-500'
-                      : 'border-slate-200/90 dark:border-[#323336] bg-white dark:bg-[#25262a] hover:border-slate-300 dark:hover:border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className={`h-11 w-11 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                      newReportType === 'user'
-                        ? 'bg-farm-100 dark:bg-farm-900/60 text-[#237227] dark:text-emerald-400'
-                        : 'bg-slate-100 dark:bg-[#323336] text-slate-500 dark:text-slate-400'
-                    }`}>
-                      <User className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-bold text-sm text-slate-900 dark:text-[#e4e6eb]">
-                        User / Farmer Account
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        General profile violation, impersonation, or platform abuse.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="shrink-0">
-                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                      newReportType === 'user'
-                        ? 'border-[#237227] dark:border-emerald-500'
-                        : 'border-slate-300 dark:border-slate-600'
-                    }`}>
-                      {newReportType === 'user' && (
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#237227] dark:bg-emerald-500" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
+                </section>
+                <section className="composer-message moderation-case-fields" aria-labelledby="case-details-heading">
+                  <div className="composer-section-heading"><h3 id="case-details-heading">Case details</h3></div>
               {/* Case Information Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                  <label htmlFor="case-complainant" className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
                     Complainant
                   </label>
-                  <input
+                  <input id="case-complainant"
                     type="text"
                     required
                     value={newReporterName}
@@ -2206,10 +1980,10 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                  <label htmlFor="case-accused" className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
                     Accused User
                   </label>
-                  <input
+                  <input id="case-accused"
                     type="text"
                     required
                     value={newReportedUser}
@@ -2222,10 +1996,10 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                  <label htmlFor="case-reason" className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
                     Violation Reason
                   </label>
-                  <select
+                  <select id="case-reason"
                     value={newReason}
                     onChange={(e) => setNewReason(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] text-xs font-medium"
@@ -2238,10 +2012,10 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                  <label htmlFor="case-severity" className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
                     Severity
                   </label>
-                  <select
+                  <select id="case-severity"
                     value={newSeverity}
                     onChange={(e) => setNewSeverity(e.target.value as 'low' | 'medium' | 'high')}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200/90 dark:border-[#393a3b] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-[#e4e6eb] outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] text-xs font-medium"
@@ -2254,10 +2028,10 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
+                <label htmlFor="case-statement" className="block font-semibold text-slate-700 dark:text-[#e4e6eb] mb-1.5 text-xs">
                   Incident Statement
                 </label>
-                <textarea
+                <textarea id="case-statement"
                   required
                   rows={3}
                   value={newStatement}
@@ -2267,32 +2041,20 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
                 />
               </div>
 
-              {/* Bottom Footer Actions (Direct Match to Image 2 Cancel & Save) */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-[#323336]">
-                <button
-                  type="button"
-                  onClick={() => setIsSimulateModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-[#393a3b] text-slate-700 dark:text-[#e4e6eb] font-semibold text-xs sm:text-sm hover:bg-slate-50 dark:hover:bg-[#2b2c30] transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingReport}
-                  className="px-6 py-2.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] text-white font-bold text-xs sm:text-sm shadow-sm transition-all disabled:opacity-50 cursor-pointer active:scale-[0.98]"
-                >
-                  {isSubmittingReport ? 'Submitting...' : 'Submit Case'}
-                </button>
+                </section>
               </div>
+              <footer className="composer-footer">
+                <span>Review the details before submitting</span>
+                <div><button type="button" className="composer-cancel" onClick={() => setIsSimulateModalOpen(false)}>Cancel</button><button type="submit" className="composer-publish" disabled={isSubmittingReport}>{isSubmittingReport ? 'Submitting…' : 'Submit case'}</button></div>
+              </footer>
             </form>
           </div>
-        </div>,
-        document.body
+        </div>, document.body
       )}
 
       {/* Floating Toast */}
       {mounted && toast && createPortal(
-        <div className="fixed top-6 right-6 z-[100002] max-w-sm w-full animate-slide-in-right pointer-events-auto">
+        <div className="admin-communications fixed top-6 right-6 z-[100002] max-w-sm w-full animate-slide-in-right pointer-events-auto">
           <div className="bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-2xl p-4 flex items-start gap-3.5 shadow-2xl backdrop-blur-md">
             <div className="h-9 w-9 rounded-xl bg-[#237227] text-white flex items-center justify-center shrink-0">
               <CheckCircle className="h-4 w-4" />

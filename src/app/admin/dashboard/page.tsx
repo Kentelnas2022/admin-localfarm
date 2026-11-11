@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminDashboardOverview } from '@/components/admin/AdminDashboardOverview';
 import { 
+  Check,
   Search, 
   Trash2, 
   CheckCircle, 
@@ -93,10 +94,13 @@ export default function AdminDashboardPage() {
     hectares: '1.5',
     rsbsa_number: ''
   });
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<number>>(new Set());
+  const [activeMemberActionId, setActiveMemberActionId] = useState<number | null>(null);
+  const [isMemberFilterDropdownOpen, setIsMemberFilterDropdownOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('full_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(5);
+  const [pageSize, setPageSize] = useState<number>(10);
   const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'community' | 'staff' | 'super_admin' | 'inspector' | 'moderator' | 'dispatcher'>('all');
   const [adminNewPassword, setAdminNewPassword] = useState('');
@@ -775,265 +779,237 @@ export default function AdminDashboardPage() {
           {/* Community members directory */}
           {activeTab === 'users' && (
             isSuperAdmin ? (
-              <div className="members-directory space-y-6">
-                <div className="members-metrics">
-                  {[
-                    {label:'Community members', value:userStats.total, detail:'Registered farmers & buyers', icon:Users},
-                    {label:'Active accounts', value:userStats.active, detail:'Full community access', icon:ShieldCheck},
-                    {label:'Pending review', value:userStats.pending, detail:'Awaiting credential checks', icon:Clock},
-                    {label:'Restricted accounts', value:userStats.suspended, detail:'Suspended or restricted', icon:AlertCircle},
-                  ].map(({label,value,detail,icon:Icon},index) => (
-                    <article className="members-metric" key={label} style={{animationDelay:index*50+'ms'}}>
-                      <div className="members-metric-heading"><span>{label}</span><span className="members-metric-icon"><Icon size={18} strokeWidth={1.7}/></span></div>
-                      <strong>{value.toLocaleString()}</strong>
-                      <p>{detail}</p>
-                    </article>
-                  ))}
-                </div>
-
-              
-                
-              {/* =========== 2. SEARCH & FILTER TOOLBAR =========== */}
-              <div className="members-toolbar bg-white dark:bg-[#242526] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs">
-                <div className="members-toolbar-layout flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
-                  
-                  {/* Search bar */}
-                  <div className="members-search relative flex-1 w-full sm:max-w-md">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <input
-                      type="text"
-                      aria-label="Search community members"
-                      value={searchUser}
+              <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
+                {/* 1. TOP HEADER BAR (MATCHING REFERENCE IMAGE) */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  {/* Community Members Filter Dropdown (Exact match to reference UI) */}
+                  <div className="relative inline-flex items-center">
+                    <select
+                      value={
+                        userStatusFilter === 'pending'
+                          ? 'pending'
+                          : userStatusFilter === 'suspended'
+                          ? 'suspended'
+                          : userRoleFilter === 'community'
+                          ? 'farmers'
+                          : userRoleFilter === 'staff'
+                          ? 'staff'
+                          : 'all'
+                      }
                       onChange={(e) => {
-                        setSearchUser(e.target.value);
+                        const val = e.target.value;
+                        if (val === 'all') {
+                          setUserRoleFilter('all');
+                          setUserStatusFilter('all');
+                        } else if (val === 'farmers') {
+                          setUserRoleFilter('community');
+                          setUserStatusFilter('all');
+                        } else if (val === 'staff') {
+                          setUserRoleFilter('staff');
+                          setUserStatusFilter('all');
+                        } else if (val === 'pending') {
+                          setUserRoleFilter('all');
+                          setUserStatusFilter('pending');
+                        } else if (val === 'suspended') {
+                          setUserRoleFilter('all');
+                          setUserStatusFilter('suspended');
+                        }
                         setCurrentPage(1);
                       }}
-                      placeholder="Search name, email, @handle, or ID..."
-                      className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-[#3a3b3c] bg-slate-50/70 dark:bg-[#18191a] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 transition-all"
-                    />
-                    {searchUser && (
-                      <button 
-                        onClick={() => setSearchUser('')} 
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-                        title="Clear search"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
+                      aria-label="Filter community members"
+                      className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
+                    >
+                      <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                        All members ({userStats.total})
+                      </option>
+                      <option value="farmers" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                        Farmers & Community ({userStats.community})
+                      </option>
+                      <option value="staff" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                        Staff & Admins ({userStats.staff})
+                      </option>
+                      <option value="pending" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                        Pending Review ({userStats.pending})
+                      </option>
+                      <option value="suspended" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                        Restricted Accounts ({userStats.suspended})
+                      </option>
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
                   </div>
 
-                  {/* Controls: Segmented Status Filter + Sort + Actions */}
-                  <div className="members-controls flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    
-                    {/* Status Dropdown */}
-                    <div className="relative inline-flex items-center">
-                      <select
-                        value={userRoleFilter}
+                  {/* Right Side Tools: Pill Search, Export, + Add User */}
+                  <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                    {/* Pill Search */}
+                    <div className="relative min-w-[190px] sm:w-60">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={searchUser}
                         onChange={(e) => {
-                          setUserRoleFilter(e.target.value as any);
+                          setSearchUser(e.target.value);
                           setCurrentPage(1);
                         }}
-                        aria-label="Filter by account role"
-                        className="appearance-none bg-white dark:bg-[#18191a] border border-slate-200/90 dark:border-[#3a3b3c] hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-                      >
-                        <option value="all" className="dark:bg-[#242526]">All Roles ({userStats.total})</option>
-                        <option value="community" className="dark:bg-[#242526]">Farmers & Community ({userStats.community})</option>
-                        <option value="staff" className="dark:bg-[#242526]">Staff & Admin Roles ({userStats.staff})</option>
-                        <option value="super_admin" className="dark:bg-[#242526]">Super Admins ({userStats.superAdminCount})</option>
-                        <option value="inspector" className="dark:bg-[#242526]">Inspectors ({userStats.inspectorCount})</option>
-                        <option value="moderator" className="dark:bg-[#242526]">Moderators ({userStats.moderatorCount})</option>
-                        <option value="dispatcher" className="dark:bg-[#242526]">Dispatchers ({userStats.dispatcherCount})</option>
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+                        placeholder="Search members..."
+                        className="w-full pl-9 pr-7 py-1.5 text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] transition-all"
+                      />
+                      {searchUser && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchUser('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
 
-                    <div className="relative inline-flex items-center">
-                      <select
-                        value={userStatusFilter}
-                        onChange={(e) => {
-                          setUserStatusFilter(e.target.value as any);
-                          setCurrentPage(1);
-                        }}
-                        aria-label="Filter by account status"
-                        className="appearance-none bg-white dark:bg-[#18191a] border border-slate-200/90 dark:border-[#3a3b3c] hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-                      >
-                        <option value="all" className="dark:bg-[#242526]">All Status ({userStats.total})</option>
-                        <option value="active" className="dark:bg-[#242526]">Active ({userStats.active})</option>
-                        <option value="pending" className="dark:bg-[#242526]">Pending ({userStats.pending})</option>
-                        <option value="suspended" className="dark:bg-[#242526]">Suspended ({userStats.suspended})</option>
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
-                    </div>
-
-                    {/* Sort Selector */}
-                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#18191a] border border-slate-200/90 dark:border-[#3a3b3c] rounded-xl px-3 py-2 text-xs font-medium text-slate-700 dark:text-[#b0b3b8]">
-                      <ArrowUpDown className="h-3.5 w-3.5 text-[#237227] dark:text-emerald-400 shrink-0" />
-                      <select
-                        value={`${sortColumn}-${sortDirection}`}
-                        onChange={(e) => {
-                          const [col, dir] = e.target.value.split('-');
-                          setSortColumn(col);
-                          setSortDirection(dir as 'asc' | 'desc');
-                          setCurrentPage(1);
-                        }}
-                        aria-label="Sort users"
-                        className="bg-transparent font-bold outline-none cursor-pointer text-xs pr-1 text-slate-800 dark:text-slate-200"
-                      >
-                        <option value="full_name-asc" className="dark:bg-[#242526]">Name (A to Z)</option>
-                        <option value="full_name-desc" className="dark:bg-[#242526]">Name (Z to A)</option>
-                        <option value="created_at-desc" className="dark:bg-[#242526]">Newest First</option>
-                        <option value="created_at-asc" className="dark:bg-[#242526]">Oldest First</option>
-                        <option value="id-asc" className="dark:bg-[#242526]">ID (Low to High)</option>
-                        <option value="id-desc" className="dark:bg-[#242526]">ID (High to Low)</option>
-                      </select>
-                    </div>
-
-                    {/* Export CSV */}
+                    {/* Export */}
                     <a
                       href="/api/admin/export?type=farmers"
                       download="users_directory.csv"
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200/90 dark:border-[#3a3b3c] bg-white dark:bg-[#242526] hover:bg-slate-50 dark:hover:bg-[#18191a] text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs whitespace-nowrap"
-                      title="Export Users & Farmers to CSV"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
+                      title="Export Users to CSV"
                     >
                       <Download className="h-3.5 w-3.5 text-slate-400" />
-                      <span>Export CSV</span>
+                      <span>Export</span>
                     </a>
 
-                    {/* + Add User / Farmer Button */}
+                    {/* + Add User */}
                     <button
                       type="button"
                       onClick={() => {
                         setCreateUserError('');
                         setIsCreateUserModalOpen(true);
                       }}
-                      className="members-add inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#237227] hover:bg-[#1c5c1f] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      <span>Add User</span>
+                      <span>+ Add User</span>
                     </button>
                   </div>
-
                 </div>
-              </div>
 
-              {/* =========== 3. USERS DIRECTORY TABLE (COMFORTABLE, CLEAN & MINIMAL) =========== */}
-              <div className="members-table-panel bg-white dark:bg-[#242526] rounded-3xl border border-slate-200/90 dark:border-[#393a3b] shadow-sm overflow-hidden">
-                <div className="members-table-heading"><div><h2>Community members</h2><p>A shared space for your farmers, buyers, and team.</p></div><span>{sortedUsers.length.toLocaleString()} members</span></div>
-              
-                
-                <div className="overflow-x-auto">
-                  <table aria-label="Community members directory" className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
-                    <thead className="border-b border-slate-200/80 dark:border-[#2e2f30] text-slate-400 dark:text-slate-500 font-semibold uppercase text-[11px] tracking-wider bg-slate-50/60 dark:bg-[#1f2021]/60">
-                      <tr>
-                        <th 
-                          onClick={() => handleSort('id')} 
-                          className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span>ID</span>
-                            {sortColumn === 'id' ? (
-                              sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" /> : <ArrowDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
+                {/* Bulk Actions Banner (if selected) */}
+                {selectedMemberIds.size > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-farm-50/70 dark:bg-farm-950/40 border border-farm-200/80 dark:border-farm-900/60 shadow-xs text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white">
+                      <span className="h-2 w-2 rounded-full bg-[#237227] animate-pulse" />
+                      <span>{selectedMemberIds.size} {selectedMemberIds.size === 1 ? 'member' : 'members'} selected</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMemberIds(new Set())}
+                      className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium text-xs px-2 py-1 cursor-pointer transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+
+                {/* Minimalist Floating Card Row Table */}
+                <div className="overflow-x-auto min-h-[440px]">
+                  <table className="w-full text-left text-xs border-separate border-spacing-y-2">
+                    <thead>
+                      <tr className="bg-[#f8f9fa] dark:bg-[#181b19] text-slate-400 dark:text-slate-500 font-medium text-[11px] tracking-tight">
+                        <th className="py-3 pl-4 pr-1 first:rounded-l-xl w-10">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedMemberIds.size === paginatedUsers.length && paginatedUsers.length > 0) {
+                                setSelectedMemberIds(new Set());
+                              } else {
+                                setSelectedMemberIds(new Set(paginatedUsers.map(u => u.id)));
+                              }
+                            }}
+                            aria-label={selectedMemberIds.size === paginatedUsers.length ? 'Deselect all' : 'Select all'}
+                            className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                              selectedMemberIds.size > 0
+                                ? 'bg-[#237227] text-white shadow-2xs'
+                                : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                            }`}
+                          >
+                            {selectedMemberIds.size === paginatedUsers.length && paginatedUsers.length > 0 ? (
+                              <Check className="h-2.5 w-2.5 stroke-[3]" />
+                            ) : null}
+                          </button>
                         </th>
-                        <th 
-                          onClick={() => handleSort('full_name')} 
-                          className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span>Member</span>
-                            {sortColumn === 'full_name' ? (
-                              sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" /> : <ArrowDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                        </th>
-                        <th 
-                          onClick={() => handleSort('email')} 
-                          className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span>Email</span>
-                            {sortColumn === 'email' ? (
-                              sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" /> : <ArrowDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                        </th>
-                        <th 
-                          onClick={() => handleSort('username')} 
-                          className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span>Handle</span>
-                            {sortColumn === 'username' ? (
-                              sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" /> : <ArrowDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                        </th>
-                        <th className="py-3 px-5 font-semibold">
-                          <span>Role</span>
-                        </th>
-                        <th 
-                          onClick={() => handleSort('status')} 
-                          className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span>Status</span>
-                            {sortColumn === 'status' ? (
-                              sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" /> : <ArrowDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                        </th>
-                        <th 
-                          onClick={() => handleSort('created_at')} 
-                          className="py-3 px-5 cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span>Joined Date</span>
-                            {sortColumn === 'created_at' ? (
-                              sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" /> : <ArrowDown className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            )}
-                          </div>
-                        </th>
-                        <th className="py-3 px-5 text-right font-semibold">Actions</th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">ID No.</th>
+                        <th className="py-3 px-4 font-medium whitespace-nowrap">Member</th>
+                        <th className="py-3 px-4 font-medium whitespace-nowrap">Email</th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">Handle</th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">Role</th>
+                        <th className="py-3 px-3 font-medium whitespace-nowrap">Status</th>
+                        <th className="py-3 px-4 font-medium whitespace-nowrap">Date Joined</th>
+                        <th className="py-3 px-4 text-right font-medium last:rounded-r-xl whitespace-nowrap w-28 min-w-[112px] max-w-[112px]">Actions</th>
                       </tr>
                     </thead>
-                    <tbody key={JSON.stringify([searchUser, userRoleFilter, userStatusFilter, sortColumn, sortDirection, safeCurrentPage, pageSize])} className="members-results divide-y divide-slate-100 dark:divide-[#2e2f30]">
+
+                    <tbody>
                       {paginatedUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-16 text-center text-xs text-slate-400 dark:text-slate-500">
+                          <td colSpan={9} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
                             <div className="flex flex-col items-center gap-2">
                               <Users className="h-7 w-7 text-slate-300 dark:text-slate-600" />
-                              <span>No user accounts found matching your search or filter.</span>
+                              <span className="font-semibold text-slate-600 dark:text-slate-300">No member accounts found</span>
                             </div>
                           </td>
                         </tr>
                       ) : (
                         paginatedUsers.map((u) => {
+                          const isChecked = selectedMemberIds.has(u.id);
+                          const isMenuOpen = activeMemberActionId === u.id;
                           const isSelf = u.id === adminUser?.id;
                           const isPending = u.status === 'pending';
                           const isSuspended = u.status === 'suspended';
                           const isActive = !u.status || u.status === 'active';
+                          const dateObj = u.created_at ? new Date(u.created_at) : null;
+                          const dateStr = dateObj ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                          const timeStr = dateObj ? dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
 
                           return (
-                            <tr key={u.id} className="hover:bg-slate-50/60 dark:hover:bg-[#28292a]/50 transition-colors duration-150">
-                              <td className="py-3.5 px-5 font-mono text-xs text-slate-400 dark:text-slate-500">
-                                #{u.id}
+                            <tr
+                              key={u.id}
+                              className={`group transition-all duration-150 ${
+                                isChecked
+                                  ? 'shadow-[0_4px_16px_rgba(35,114,39,0.08)] ring-1 ring-[#237227]/30 dark:ring-emerald-400/30 rounded-2xl bg-farm-50/20 dark:bg-[#1a202c]'
+                                  : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40 rounded-xl'
+                              }`}
+                            >
+                              {/* Checkbox */}
+                              <td className={`py-3.5 pl-4 pr-1 align-middle w-10 first:rounded-l-2xl ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedMemberIds(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(u.id)) next.delete(u.id);
+                                      else next.add(u.id);
+                                      return next;
+                                    });
+                                  }}
+                                  className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                                    isChecked
+                                      ? 'bg-[#237227] text-white shadow-2xs'
+                                      : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                                  }`}
+                                >
+                                  {isChecked && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                                </button>
                               </td>
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/70 dark:border-slate-700/60">
+
+                              {/* ID No. */}
+                              <td className={`py-3.5 px-3 align-middle font-mono text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                                #{String(u.id).padStart(4, '0')}
+                              </td>
+
+                              {/* Member (Avatar + Name bold + Phone number) */}
+                              <td 
+                                onClick={() => handleOpenEdit(u)}
+                                className={`py-3.5 px-4 align-middle cursor-pointer max-w-[220px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/70 dark:border-slate-700/60">
                                     {u.avatar_url ? (
                                       <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
                                     ) : (
@@ -1041,72 +1017,112 @@ export default function AdminDashboardPage() {
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate leading-tight flex items-center gap-1.5">
+                                    <div className="font-bold text-xs text-slate-900 dark:text-white truncate flex items-center gap-1">
                                       <span>{u.full_name || 'Unnamed User'}</span>
                                       {u.is_verified === 1 && (
                                         <span title="Verified Producer">
-                                          <CheckCircle className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400 shrink-0" />
+                                          <CheckCircle className="h-3 w-3 text-farm-600 dark:text-farm-400 shrink-0" />
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5 font-normal">
+                                    <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
                                       {u.phone_number || '—'}
                                     </div>
                                   </div>
                                 </div>
                               </td>
-                              <td className="py-3.5 px-5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-normal">
-                                <span className="truncate block max-w-[220px]" title={u.email}>{u.email}</span>
+
+                              {/* Email */}
+                              <td className={`py-3.5 px-4 align-middle whitespace-nowrap text-xs text-slate-600 dark:text-slate-300 ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                                <span className="truncate block max-w-[190px]" title={u.email}>{u.email}</span>
                               </td>
-                              <td className="py-3.5 px-5 whitespace-nowrap">
-                                <span className="font-mono text-xs text-slate-400 dark:text-slate-500 font-normal">
-                                  @{u.username || '—'}
+
+                              {/* Handle */}
+                              <td className={`py-3.5 px-3 align-middle whitespace-nowrap font-mono text-[11px] text-slate-400 dark:text-slate-500 ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                                @{u.username || '—'}
+                              </td>
+
+                              {/* Role Pill */}
+                              <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-[#18191a] text-slate-700 dark:text-[#b0b3b8] border border-slate-200 dark:border-[#393a3b] capitalize">
+                                  {(u.role || 'user').replace(/_/g, ' ')}
                                 </span>
                               </td>
-                              <td className="py-3.5 px-5 whitespace-nowrap"><span className="member-role">{(u.role || 'user').replace(/_/g, ' ')}</span></td>
-                              <td className="py-3.5 px-5 whitespace-nowrap">
+
+                              {/* Status (Minimalist Dot Pill) */}
+                              <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
                                 {isActive && (
-                                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-farm-50/70 dark:bg-farm-950/40 text-farm-700 dark:text-farm-400 border border-farm-200/60 dark:border-farm-800/40">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-farm-600" />
-                                    Active
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#237227] dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-[#237227] shrink-0" />
+                                    <span>Active</span>
                                   </span>
                                 )}
                                 {isPending && (
-                                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50/70 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/40">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                                    Pending
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                                    <span>Pending</span>
                                   </span>
                                 )}
                                 {isSuspended && (
-                                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-50/60 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/40">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                                    Suspended
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                                    <span>Suspended</span>
                                   </span>
                                 )}
                               </td>
-                              <td className="py-3.5 px-5 text-slate-500 dark:text-slate-400 text-xs font-normal whitespace-nowrap">
-                                {u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+
+                              {/* Date Joined (2 lines) */}
+                              <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                                <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">{dateStr}</div>
+                                {timeStr && <div className="text-[10px] text-slate-400 dark:text-slate-500">{timeStr}</div>}
                               </td>
-                              <td className="py-3.5 px-5 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1">
+
+                              {/* Actions: Fixed Position Trigger */}
+                              <td className={`py-3.5 px-4 text-right align-middle whitespace-nowrap last:rounded-r-2xl w-28 min-w-[112px] max-w-[112px] relative ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                                <div className="relative inline-block text-left">
                                   <button
                                     type="button"
-                                    onClick={() => handleOpenEdit(u)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-farm-700 dark:hover:text-farm-400 hover:bg-slate-100 dark:hover:bg-[#343536] transition-colors cursor-pointer"
-                                    title="View info & edit"
+                                    onClick={() => setActiveMemberActionId(isMenuOpen ? null : u.id)}
+                                    className={`inline-flex items-center justify-center gap-1.5 w-24 px-2.5 py-1 rounded-lg border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+                                      isMenuOpen
+                                        ? 'border-[#237227] bg-farm-50 text-[#237227] dark:bg-farm-950/50 dark:text-emerald-400 dark:border-emerald-600'
+                                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'
+                                    }`}
                                   >
-                                    <Edit3 className="h-3.5 w-3.5" />
-                                    <span>Edit</span>
+                                    <span>Actions</span>
+                                    <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isMenuOpen ? 'rotate-180 text-[#237227]' : ''}`} />
                                   </button>
-                                  {!isSelf && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteUser(u.id, u.full_name || u.email)}
-                                      className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 dark:text-slate-600 dark:hover:text-rose-400 hover:bg-rose-50/80 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                                      title="Delete user"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
+
+                                  {isMenuOpen && (
+                                    <>
+                                      <div className="fixed inset-0 z-40" onClick={() => setActiveMemberActionId(null)} />
+                                      <div className="absolute right-0 top-full mt-1.5 w-38 rounded-xl bg-white dark:bg-[#242526] border border-slate-200 dark:border-slate-700 shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveMemberActionId(null);
+                                            handleOpenEdit(u);
+                                          }}
+                                          className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Edit3 className="h-3.5 w-3.5 text-slate-400" />
+                                          <span>Edit Profile</span>
+                                        </button>
+                                        {!isSelf && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveMemberActionId(null);
+                                              handleDeleteUser(u.id, u.full_name || u.email);
+                                            }}
+                                            className="w-full text-left px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium flex items-center gap-2 cursor-pointer"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                            <span>Delete User</span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                               </td>
@@ -1118,8 +1134,8 @@ export default function AdminDashboardPage() {
                   </table>
                 </div>
 
-                {/* =========== 4. PAGINATION (CLEAN & COMFORTABLE) =========== */}
-                <div className="members-pagination flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-100 dark:border-[#2e2f30] text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#242526]">
+                {/* 3. PAGINATION FOOTER (MATCHING REFERENCE IMAGE) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
                   <div className="flex items-center gap-3 flex-wrap">
                     <div>
                       Showing <span className="font-semibold text-slate-800 dark:text-slate-200">{sortedUsers.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}</span> to{' '}
@@ -1127,16 +1143,16 @@ export default function AdminDashboardPage() {
                       <span className="font-semibold text-slate-800 dark:text-slate-200">{sortedUsers.length}</span> user profiles
                     </div>
                     <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200/80 dark:border-slate-800">
-                      <span className="text-[11px] text-slate-400">Rows:</span>
-                      {[5, 10, 20].map((size) => (
+                      <span className="text-[11px] text-slate-400">Per page:</span>
+                      {[10, 20, 50].map((size) => (
                         <button
                           key={size}
                           type="button"
                           onClick={() => { setPageSize(size); setCurrentPage(1); }}
                           className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                             pageSize === size
-                              ? 'bg-farm-600 text-white font-bold shadow-2xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#18191a]'
+                              ? 'bg-[#237227] text-white font-bold shadow-2xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                           }`}
                         >
                           {size}
@@ -1150,7 +1166,7 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={safeCurrentPage <= 1}
-                      className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-[#18191a] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-slate-300"
+                      className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-slate-300"
                       title="Previous Page"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
@@ -1168,10 +1184,10 @@ export default function AdminDashboardPage() {
                             <button
                               type="button"
                               onClick={() => setCurrentPage(page)}
-                              className={`min-w-[30px] h-7 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                 safeCurrentPage === page
-                                  ? 'bg-farm-600 text-white font-bold shadow-2xs'
-                                  : 'hover:bg-slate-100 dark:hover:bg-[#18191a] text-slate-600 dark:text-slate-300'
+                                  ? 'bg-[#237227] text-white font-bold shadow-2xs'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
                               }`}
                             >
                               {page}
@@ -1184,7 +1200,7 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={safeCurrentPage >= totalPages}
-                      className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-[#18191a] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-slate-300"
+                      className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-slate-300"
                       title="Next Page"
                     >
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -1192,8 +1208,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               </div>
-            </div>
-          ) : (
+            ) : (
               <div className="bg-white dark:bg-[#242526] rounded-2xl p-10 border border-slate-200/90 dark:border-[#393a3b] shadow-2xs text-center space-y-4">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200 dark:border-rose-900/60">
                   <Lock className="w-7 h-7" />

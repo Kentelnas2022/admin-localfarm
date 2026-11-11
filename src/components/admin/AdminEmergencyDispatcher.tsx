@@ -1,5 +1,7 @@
 'use client';
 
+import './communications.css';
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -169,11 +171,11 @@ export function AdminEmergencyDispatcher() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="admin-communications disaster-workspace space-y-6">
 
       {/* Toast Alert */}
       {mounted && toast && createPortal(
-        <div className="fixed top-6 right-8 z-[100000] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border animate-fade-in bg-slate-900 border-slate-800 text-white">
+        <div className="admin-communications fixed top-6 right-8 z-[100000] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border animate-fade-in bg-slate-900 border-slate-800 text-white">
           <div className="p-1.5 rounded-lg shrink-0 bg-farm-600 text-white">
             {toast.type === 'error' ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
           </div>
@@ -186,7 +188,7 @@ export function AdminEmergencyDispatcher() {
       )}
 
       {/* =========== 1. TOP BANNER =========== */}
-      <div className="relative rounded-3xl p-7 sm:p-8 text-white shadow-lg overflow-hidden bg-gradient-to-br from-farm-800 via-farm-700 to-emerald-900 border border-farm-500/30">
+      <div className="communications-hero relative rounded-3xl p-7 sm:p-8 text-white shadow-lg overflow-hidden bg-gradient-to-br from-farm-800 via-farm-700 to-emerald-900 border border-farm-500/30">
         <div className="relative z-10 max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider">
             <Radio className="h-3.5 w-3.5 text-farm-200" />
@@ -199,7 +201,7 @@ export function AdminEmergencyDispatcher() {
           <p className="text-xs sm:text-sm text-farm-100/90 leading-relaxed max-w-xl">
             Broadcast instant high-priority alerts with harvest survival directives directly to the mobile app notification shade of{' '}
             <span className="font-extrabold text-white underline decoration-white/40 underline-offset-4">
-              {totalFarmers || 23} registered farmers
+              {totalFarmers.toLocaleString()} registered farmers
             </span>.
           </p>
         </div>
@@ -209,7 +211,7 @@ export function AdminEmergencyDispatcher() {
       </div>
 
       {/* =========== 2. DISASTER PROTOCOL TEMPLATES & TOOLBAR =========== */}
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
+      <div className="communications-toolbar bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
         <div className="flex items-center gap-2.5">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Emergency Protocol Directive:
@@ -238,7 +240,7 @@ export function AdminEmergencyDispatcher() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Left 2 Cols: Advisory Composition Card */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#1a1e1b] rounded-3xl p-6 sm:p-8 border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-6">
+        <div className="communications-panel lg:col-span-2 bg-white dark:bg-[#1a1e1b] rounded-3xl p-6 sm:p-8 border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-6">
           
           {/* Header Row */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -367,7 +369,7 @@ export function AdminEmergencyDispatcher() {
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="text-slate-500 dark:text-slate-400 text-xs">
                 Targeting: <strong className="text-slate-900 dark:text-white font-extrabold">{targetLocation}</strong>
-                {' '}<span className="text-slate-400 dark:text-slate-500 font-medium">(~{targetLocation === 'All Farmers' ? (totalFarmers || 23) : 'Filtered'} terminals)</span>
+                {' '}<span className="text-slate-400 dark:text-slate-500 font-medium">(~{targetLocation === 'All Farmers' ? totalFarmers.toLocaleString() : 'Filtered'} terminals)</span>
               </div>
 
               <button
@@ -383,7 +385,7 @@ export function AdminEmergencyDispatcher() {
         </div>
 
         {/* Right 1 Col: Past Advisories History */}
-        <div className="bg-white dark:bg-[#1a1e1b] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800 shadow-sm flex flex-col space-y-4">
+        <div className="communications-panel bg-white dark:bg-[#1a1e1b] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800 shadow-sm flex flex-col space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h3 className="font-extrabold text-slate-900 dark:text-white text-sm tracking-tight">
@@ -429,7 +431,7 @@ export function AdminEmergencyDispatcher() {
                 .map((item) => (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl bg-slate-50/70 dark:bg-[#131614] border border-slate-200/80 dark:border-slate-800 space-y-1.5 hover:border-farm-300 dark:hover:border-farm-800/80 hover:bg-white dark:hover:bg-[#181c19] transition-all group"
+                  className="communications-entry p-4 rounded-2xl bg-slate-50/70 dark:bg-[#131614] border border-slate-200/80 dark:border-slate-800 space-y-1.5 hover:border-farm-300 dark:hover:border-farm-800/80 hover:bg-white dark:hover:bg-[#181c19] transition-all group"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-farm-800 dark:text-farm-200 bg-farm-50 dark:bg-farm-950/50 px-2 py-0.5 rounded border border-farm-200/80 dark:border-farm-800/80 uppercase">

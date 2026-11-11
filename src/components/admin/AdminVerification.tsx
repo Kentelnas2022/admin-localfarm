@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { 
+  Check,
   Award, 
   CheckCircle, 
   XCircle, 
@@ -81,7 +82,7 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(6);
+  const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -93,6 +94,8 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerProfile | null>(null);
   const [certificateFarmer, setCertificateFarmer] = useState<FarmerProfile | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [activeActionId, setActiveActionId] = useState<number | null>(null);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [rejectModalFarmer, setRejectModalFarmer] = useState<FarmerProfile | null>(null);
   const [rejectionReason, setRejectionReason] = useState('Incomplete accreditation documents or invalid farm certificate.');
   const [isAddFarmerOpen, setIsAddFarmerOpen] = useState(false);
@@ -341,178 +344,196 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
         </article>)}
       </div>
 
-      {/* =========== 2. SEARCH & FILTER TOOLBAR (CLEAN, FUNCTIONAL) =========== */}
-      <div className="members-toolbar bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-        <div className="members-toolbar-layout flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
-          
-          {/* Search bar */}
-          <div className="members-search relative flex-1 w-full sm:max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              aria-label="Search farmer accreditations"
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              placeholder="Search farmer name, farm, crops, location, or code..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-[#131614] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 transition-all"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
-                <X className="h-4 w-4" />
-              </button>
-            )}
+      
+      {/* =========== UNIFIED ACCREDITATION COMMUNICATIONS PANEL (MATCHING REFERENCE IMAGE) =========== */}
+      <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
+        
+        {/* 1. TOP HEADER BAR */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Left: Dropdown Selection (No dragging slide / scrollbar) */}
+          {/* Accreditation Status Dropdown (Exact match to reference UI) */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              aria-label="Filter farmer accreditations"
+              className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
+            >
+              <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                All applications ({stats.total})
+              </option>
+              <option value="pending" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Pending Review ({stats.pending})
+              </option>
+              <option value="verified" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Verified Producers ({stats.verified})
+              </option>
+              <option value="rejected" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Rejected Applications ({stats.rejected})
+              </option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
           </div>
 
-          {/* Controls: Segmented Status Filter + Actions */}
-          <div className="members-controls flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* Status Dropdown */}
-            <div className="relative inline-flex items-center">
-              <select
-                value={statusFilter}
+          {/* Right Side Tools: Search, Export, DA Audit, + Register */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Pill Search */}
+            <div className="relative min-w-[180px] sm:w-56">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
                 onChange={(e) => {
-                  setStatusFilter(e.target.value as any);
+                  setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                aria-label="Filter by accreditation status"
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="all" className="dark:bg-[#1a1e1b]">All Accreditations ({stats.total})</option>
-                <option value="pending" className="dark:bg-[#1a1e1b]">Pending ({stats.pending})</option>
-                <option value="verified" className="dark:bg-[#1a1e1b]">Verified ({stats.verified})</option>
-                <option value="rejected" className="dark:bg-[#1a1e1b]">Rejected ({stats.rejected})</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+                placeholder="Search farmer, farm, crops..."
+                className="w-full pl-9 pr-7 py-1.5 text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
 
             {/* Export CSV */}
             <a
               href="/api/admin/export?type=farmers"
               download
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#1a1e1b] hover:bg-slate-50 dark:hover:bg-[#222723] text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
+              title="Export Farmer Directory to CSV"
             >
               <Download className="h-3.5 w-3.5 text-slate-400" />
-              <span>Export CSV</span>
+              <span>Export</span>
             </a>
 
-            {/* DA / MAO Compliance Report Export */}
+            {/* DA Compliance Audit Report */}
             <a
               href="/api/admin/export?type=da_report"
               download
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all shadow-2xs whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
               title="Download Department of Agriculture (DA) & Municipal Agriculture Office (MAO) Compliance Audit Report"
             >
               <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>DA Audit Report</span>
+              <span>DA Audit</span>
             </a>
 
-            {/* + Register Farmer Button */}
+            {/* + Register Farmer */}
             <button
               type="button"
               onClick={() => setIsAddFarmerOpen(true)}
-              className="members-add inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#237227] hover:bg-[#1c5c1f] text-white text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Register Farmer</span>
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-      {/* =========== 3. ACCREDITATION DOSSIER TABLE (CLEAN, COMFORTABLE & ALIVE) =========== */}
-      {selectedIds.size > 0 && (
-        <div className="accreditation-selection" role="region" aria-label="Selected farmer actions">
-          <div className="selection-summary">
-            <span className="selection-count">
-              {selectedIds.size}
-            </span>
-            <span className="selection-description">
-              {selectedIds.size} {selectedIds.size === 1 ? 'farmer profile' : 'farmer profiles'} selected
-            </span>
-          </div>
-          <div className="selection-actions">
-            <button
-              type="button"
-              disabled={isBulkActionLoading}
-              onClick={() => handleBulkAction('verify')}
-              className="selection-verify"
-            >
-              <CheckCircle className="h-3.5 w-3.5" />
-              <span>Verify selected</span>
-            </button>
-            <button
-              type="button"
-              disabled={isBulkActionLoading}
-              onClick={() => handleBulkAction('reject')}
-              className="selection-reject"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-              <span>Reject selected</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedIds(new Set())}
-              className="selection-clear"
-            >
-              Clear
+              <span>+ Register</span>
             </button>
           </div>
         </div>
-      )}
 
-      <div className="members-table-panel bg-white dark:bg-[#1a1e1b] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="members-table-heading"><div><h2>Farmer accreditation</h2><p>Review farmer profiles and accreditation status.</p></div><span>{totalCount.toLocaleString()} profiles</span></div>
-        <div className="overflow-x-auto">
-          <table aria-label="Farmer accreditation directory" className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
-            <thead className="border-b border-slate-200/90 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase text-[11px] tracking-wider bg-slate-50/80 dark:bg-[#141715]">
-              <tr>
-                <th className="py-3.5 px-4 w-10 text-center">
-                  <input
-                    type="checkbox"
-                    checked={farmers.length > 0 && selectedIds.size === farmers.length}
-                    onChange={handleToggleSelectAll}
-                    className="rounded border-slate-300 text-farm-600 focus:ring-farm-500 cursor-pointer"
-                    aria-label="Select all farmers"
-                  />
+        {/* Selected Banner (if selected) */}
+        {selectedIds.size > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-farm-50/70 dark:bg-farm-950/40 border border-farm-200/80 dark:border-farm-900/60 shadow-xs text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white">
+              <span className="h-2 w-2 rounded-full bg-[#237227] animate-pulse" />
+              <span>{selectedIds.size} {selectedIds.size === 1 ? 'farmer profile' : 'farmer profiles'} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isBulkActionLoading}
+                onClick={() => handleBulkAction('verify')}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 text-[#237227] dark:text-emerald-400 border border-slate-200 dark:border-slate-700 font-semibold text-xs shadow-2xs cursor-pointer"
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                <span>Verify</span>
+              </button>
+              <button
+                type="button"
+                disabled={isBulkActionLoading}
+                onClick={() => handleBulkAction('reject')}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-slate-700 font-semibold text-xs shadow-2xs cursor-pointer"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                <span>Reject</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium text-xs px-2 py-1 cursor-pointer transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Minimalist Floating Card Row Table */}
+        <div className="overflow-x-auto min-h-[440px]">
+          <table className="w-full text-left text-xs border-separate border-spacing-y-2">
+            <thead>
+              <tr className="bg-[#f8f9fa] dark:bg-[#181b19] text-slate-400 dark:text-slate-500 font-medium text-[11px] tracking-tight">
+                <th className="py-3 pl-4 pr-1 first:rounded-l-xl w-10">
+                  <button
+                    type="button"
+                    onClick={handleToggleSelectAll}
+                    aria-label={selectedIds.size === farmers.length ? 'Deselect all' : 'Select all'}
+                    className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                      selectedIds.size > 0
+                        ? 'bg-[#237227] text-white shadow-2xs'
+                        : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                    }`}
+                  >
+                    {selectedIds.size === farmers.length && farmers.length > 0 ? (
+                      <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    ) : null}
+                  </button>
                 </th>
-                <th className="py-3.5 px-5">Farmer & Handle</th>
-                <th className="py-3.5 px-5">Farm Name & Code</th>
-                <th className="py-3.5 px-5">Cultivated Crops</th>
-                <th className="py-3.5 px-5">Location</th>
-                <th className="py-3.5 px-5">Scale & Yield</th>
-                <th className="py-3.5 px-5">Certifications</th>
-                <th className="py-3.5 px-5">Status & Validity</th>
-                <th className="py-3.5 px-5 text-right">Action</th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">ID No.</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Farmer & Contact</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Farm & Location</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Cultivated Crops</th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">Scale & Yield</th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 text-right font-medium last:rounded-r-xl whitespace-nowrap w-28 min-w-[112px] max-w-[112px]">Actions</th>
               </tr>
             </thead>
 
-            <tbody key={JSON.stringify([searchQuery, statusFilter, currentPage, pageSize, isLoading])} className={`accreditation-results divide-y divide-slate-100 dark:divide-slate-800/80 ${isLoading ? 'is-loading' : ''}`} aria-busy={isLoading}>
+            <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="py-20 text-center text-xs text-slate-400">
-                    <div className="flex items-center justify-center gap-2">
-                      <RefreshCw className="h-4 w-4 animate-spin text-farm-600" />
-                      <span>Loading farmer credentials from database...</span>
+                  <td colSpan={8} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <RefreshCw className="h-6 w-6 animate-spin text-[#237227]" />
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">Loading farmer accreditations...</span>
                     </div>
                   </td>
                 </tr>
               ) : farmers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-20 text-center text-xs text-slate-400">
+                  <td colSpan={8} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
                     <div className="flex flex-col items-center gap-2">
                       <FileCheck className="h-7 w-7 text-slate-300 dark:text-slate-600" />
-                      <span>No farmer verification records found matching your filter.</span>
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">No accreditation records found</span>
                     </div>
                   </td>
                 </tr>
               ) : (
                 farmers.map((farmer) => {
+                  const isChecked = selectedIds.has(farmer.id);
+                  const isMenuOpen = activeActionId === farmer.id;
                   const isPending = farmer.verification_status === 'pending';
                   const isVerified = farmer.verification_status === 'verified';
                   const isRejected = farmer.verification_status === 'rejected';
                   const isProcessing = actionLoadingId === farmer.id;
 
-                  // Parse crops list cleanly
                   const cropList = farmer.crops ? farmer.crops.split(',').map(c => c.trim()).filter(Boolean) : [];
                   const displayedCrops = cropList.slice(0, 3);
                   const extraCropsCount = cropList.length - displayedCrops.length;
@@ -520,25 +541,39 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                   return (
                     <tr
                       key={farmer.id}
-                      className={`hover:bg-slate-50/70 dark:hover:bg-[#1f2320]/70 transition-colors duration-150 ${
-                        isPending ? 'bg-amber-500/[0.02] dark:bg-amber-500/[0.03]' : ''
+                      className={`group transition-all duration-150 ${
+                        isChecked
+                          ? 'shadow-[0_4px_16px_rgba(35,114,39,0.08)] ring-1 ring-[#237227]/30 dark:ring-emerald-400/30 rounded-2xl bg-farm-50/20 dark:bg-[#1a202c]'
+                          : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40 rounded-xl'
                       }`}
                     >
-                      {/* Checkbox column */}
-                      <td className="py-4.5 px-4 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(farmer.id)}
-                          onChange={() => handleToggleSelectFarmer(farmer.id)}
-                          className="rounded border-slate-300 text-farm-600 focus:ring-farm-500 cursor-pointer"
-                          aria-label={`Select ${farmer.full_name}`}
-                        />
+                      {/* Checkbox */}
+                      <td className={`py-3.5 pl-4 pr-1 align-middle w-10 first:rounded-l-2xl ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectFarmer(farmer.id)}
+                          className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-[#237227] text-white shadow-2xs'
+                              : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
+                          }`}
+                        >
+                          {isChecked && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </button>
                       </td>
 
-                      {/* 1. Farmer & Handle */}
-                      <td className="py-4.5 px-5 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-farm-700 dark:text-farm-300 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/80 dark:border-slate-700 shadow-2xs">
+                      {/* Code / ID No. */}
+                      <td className={`py-3.5 px-3 align-middle font-mono text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        {farmer.farmer_code || ('FAR-' + String(farmer.id).padStart(4, '0'))}
+                      </td>
+
+                      {/* Farmer & Contact */}
+                      <td 
+                        onClick={() => setSelectedFarmer(farmer)}
+                        className={`py-3.5 px-4 align-middle cursor-pointer max-w-[220px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-farm-700 dark:text-farm-300 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200/80 dark:border-slate-700 shadow-2xs">
                             {farmer.avatar_url ? (
                               <img src={farmer.avatar_url} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -546,40 +581,39 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                                {farmer.full_name}
-                              </span>
+                            <div className="font-bold text-xs text-slate-900 dark:text-white truncate flex items-center gap-1">
+                              <span>{farmer.full_name}</span>
                               {isVerified && (
                                 <span title="Verified Producer">
-                                  <CheckCircle className="h-3.5 w-3.5 text-farm-600 dark:text-farm-400 shrink-0" />
+                                  <CheckCircle className="h-3 w-3 text-farm-600 dark:text-farm-400 shrink-0" />
                                 </span>
                               )}
                             </div>
-                            <div className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                              @{farmer.username} • {farmer.email}
+                            <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                              @{farmer.username} • {farmer.phone_number || farmer.email}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* 2. Farm Name & Code */}
-                      <td className="py-4.5 px-5 whitespace-nowrap">
-                        <div className="font-semibold text-sm text-slate-900 dark:text-white leading-tight">
+                      {/* Farm & Location */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="font-semibold text-xs text-slate-900 dark:text-white truncate max-w-[180px]">
                           {farmer.farm_name}
                         </div>
-                        <div className="font-mono text-xs font-semibold text-farm-700 dark:text-farm-400 mt-0.5">
-                          {farmer.farmer_code || 'FAR-PENDING'}
+                        <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-[180px] mt-0.5">
+                          <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span>{farmer.farm_location}</span>
                         </div>
                       </td>
 
-                      {/* 3. Crops */}
-                      <td className="py-4.5 px-5 max-w-[210px]">
-                        <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Cultivated Crops */}
+                      <td className={`py-3.5 px-4 align-middle max-w-[200px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="flex flex-wrap items-center gap-1">
                           {displayedCrops.map((crop, idx) => (
                             <span
                               key={idx}
-                              className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700/60"
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-[#18191a] text-slate-700 dark:text-[#b0b3b8] border border-slate-200 dark:border-[#393a3b]"
                             >
                               {crop}
                             </span>
@@ -592,124 +626,113 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                         </div>
                       </td>
 
-                      {/* 4. Location */}
-                      <td className="py-4.5 px-5 whitespace-nowrap text-xs text-slate-600 dark:text-slate-400 font-medium">
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <span>{farmer.farm_location}</span>
-                        </div>
-                      </td>
-
-                      {/* 5. Scale & Yield */}
-                      <td className="py-4.5 px-5 whitespace-nowrap">
-                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      {/* Scale & Yield */}
+                      <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                           {farmer.hectares} ha
                         </div>
-                        <div className="text-[10px] text-farm-600 dark:text-farm-400 font-bold flex items-center gap-0.5 mt-0.5">
+                        <div className="text-[10px] text-farm-600 dark:text-farm-400 font-semibold flex items-center gap-0.5 mt-0.5">
                           <TrendingUp className="h-3 w-3" />
-                          <span>{farmer.yield_trend}</span>
+                          <span>{farmer.yield_trend || 'Steady'}</span>
                         </div>
                       </td>
 
-                      {/* 6. Certifications */}
-                      <td className="py-4.5 px-5 max-w-[190px]">
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate block" title={farmer.certifications}>
-                          {farmer.certifications || 'None submitted'}
-                        </span>
-                        {farmer.rsbsa_number && (
-                          <span className="inline-block mt-0.5 font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                            RSBSA: {farmer.rsbsa_number}
+                      {/* Status (Minimalist Dot Pill) */}
+                      <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        {isVerified && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#237227] dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#237227] shrink-0" />
+                            <span>Verified</span>
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                            <span>Pending</span>
+                          </span>
+                        )}
+                        {isRejected && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                            <span>Rejected</span>
                           </span>
                         )}
                       </td>
 
-                      {/* 7. Status & Validity */}
-                      <td className="py-4.5 px-5 whitespace-nowrap">
-                        {isPending && (
-                          <div>
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                              Pending
-                            </span>
-                            <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1">
-                              Awaiting DA Review
-                            </div>
-                          </div>
-                        )}
-                        {isVerified && (
-                          <div>
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-farm-50 dark:bg-farm-950/50 text-farm-800 dark:text-farm-300 border border-farm-200 dark:border-farm-800/80">
-                              <span className="h-1.5 w-1.5 rounded-full bg-farm-600" />
-                              Verified
-                            </span>
-                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                              PhilGAP Valid (2026-2027)
-                            </div>
-                          </div>
-                        )}
-                        {isRejected && (
-                          <div>
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80">
-                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                              Rejected
-                            </span>
-                            <div className="text-[10px] text-rose-500 font-medium mt-1">
-                              Requires Re-filing
-                            </div>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* 8. Actions */}
-                      <td className="py-4.5 px-5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Dossier details modal */}
+                      {/* Actions: Fixed Position Trigger */}
+                      <td className={`py-3.5 px-4 text-right align-middle whitespace-nowrap last:rounded-r-2xl w-28 min-w-[112px] max-w-[112px] relative ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="relative inline-block text-left">
                           <button
                             type="button"
-                            onClick={() => setSelectedFarmer(farmer)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer"
-                            title="Inspect full accreditation dossier"
+                            onClick={() => setActiveActionId(isMenuOpen ? null : farmer.id)}
+                            className={`inline-flex items-center justify-center gap-1.5 w-24 px-2.5 py-1 rounded-lg border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+                              isMenuOpen
+                                ? 'border-[#237227] bg-farm-50 text-[#237227] dark:bg-farm-950/50 dark:text-emerald-400 dark:border-emerald-600'
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'
+                            }`}
                           >
-                            <Maximize2 className="h-3.5 w-3.5" />
+                            <span>Actions</span>
+                            <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isMenuOpen ? 'rotate-180 text-[#237227]' : ''}`} />
                           </button>
 
-                          {/* Print Certificate for Verified Farmers */}
-                          {isVerified && (
-                            <button
-                              type="button"
-                              onClick={() => setCertificateFarmer(farmer)}
-                              className="p-2 rounded-xl text-farm-700 dark:text-farm-300 hover:bg-farm-50 dark:hover:bg-farm-950/50 transition-colors border border-transparent hover:border-farm-200 dark:hover:border-farm-800 cursor-pointer"
-                              title="Print PhilGAP Accreditation Certificate"
-                            >
-                              <Printer className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-
-                          {/* Quick 1-Click Approve */}
-                          {!isVerified && (
-                            <button
-                              type="button"
-                              onClick={() => handleVerify(farmer.id, farmer.full_name)}
-                              disabled={isProcessing}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-farm-600 hover:bg-farm-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
-                              title="Approve & Accredit Farmer"
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                              <span>{isProcessing ? 'Saving...' : 'Approve'}</span>
-                            </button>
-                          )}
-
-                          {/* Quick Reject */}
-                          {isPending && (
-                            <button
-                              type="button"
-                              onClick={() => setRejectModalFarmer(farmer)}
-                              disabled={isProcessing}
-                              className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 text-xs font-semibold transition-all cursor-pointer"
-                              title="Reject application"
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </button>
+                          {isMenuOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveActionId(null)} />
+                              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#242526] border border-slate-200 dark:border-slate-700 shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionId(null);
+                                    setSelectedFarmer(farmer);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Maximize2 className="h-3.5 w-3.5 text-slate-400" />
+                                  <span>Inspect Dossier</span>
+                                </button>
+                                {isVerified && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionId(null);
+                                      setCertificateFarmer(farmer);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-farm-700 dark:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Printer className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    <span>Print PhilGAP Cert</span>
+                                  </button>
+                                )}
+                                {!isVerified && (
+                                  <button
+                                    type="button"
+                                    disabled={isProcessing}
+                                    onClick={() => {
+                                      setActiveActionId(null);
+                                      handleVerify(farmer.id, farmer.full_name);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-[#237227] dark:text-emerald-400 hover:bg-farm-50 dark:hover:bg-farm-950/40 font-medium flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                    <span>{isProcessing ? 'Saving...' : 'Approve Farmer'}</span>
+                                  </button>
+                                )}
+                                {isPending && (
+                                  <button
+                                    type="button"
+                                    disabled={isProcessing}
+                                    onClick={() => {
+                                      setActiveActionId(null);
+                                      setRejectModalFarmer(farmer);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" />
+                                    <span>Reject Application</span>
+                                  </button>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       </td>
@@ -721,25 +744,25 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
           </table>
         </div>
 
-        {/* =========== 4. PAGINATION (CLEAN & COMFORTABLE) =========== */}
-        <div className="members-pagination flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#1a1e1b]">
+        {/* 3. PAGINATION FOOTER (MATCHING REFERENCE IMAGE) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3 flex-wrap">
             <div>
-              Showing <span className="font-bold text-slate-900 dark:text-white">{totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
-              <span className="font-bold text-slate-900 dark:text-white">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
-              <span className="font-bold text-slate-900 dark:text-white">{totalCount}</span> farmer profiles
+              Showing <span className="font-semibold text-slate-800 dark:text-slate-200">{totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{totalCount}</span> farmer profiles
             </div>
-            <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-800">
-              <span className="text-[11px] text-slate-400">Rows:</span>
-              {[6, 12, 24].map((size) => (
+            <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200/80 dark:border-slate-800">
+              <span className="text-[11px] text-slate-400">Per page:</span>
+              {[10, 20, 50].map((size) => (
                 <button
                   key={size}
                   type="button"
                   onClick={() => { setPageSize(size); setCurrentPage(1); }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                     pageSize === size
-                      ? 'bg-farm-600 text-white shadow-2xs'
-                      : 'border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-[#141715] text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                      ? 'bg-[#237227] text-white font-bold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   {size}
@@ -748,12 +771,13 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+          <div className="flex items-center gap-1 self-end sm:self-auto">
             <button
               type="button"
               onClick={() => { const p = Math.max(1, currentPage - 1); setCurrentPage(p); fetchFarmers(p, statusFilter, searchQuery, pageSize); }}
               disabled={currentPage <= 1}
-              className="p-2 rounded-xl border border-slate-200/90 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-[#202521] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-slate-300"
+              title="Previous Page"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -769,10 +793,10 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
                     <button
                       type="button"
                       onClick={() => { setCurrentPage(page); fetchFarmers(page, statusFilter, searchQuery, pageSize); }}
-                      className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         currentPage === page
-                          ? 'bg-farm-600 text-white shadow-2xs'
-                          : 'border border-slate-200/90 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-[#202521] text-slate-700 dark:text-slate-300'
+                          ? 'bg-[#237227] text-white font-bold shadow-2xs'
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       {page}
@@ -785,14 +809,15 @@ export function AdminVerification({ initialStatusFilter = 'all', onStatusChange 
               type="button"
               onClick={() => { const p = Math.min(totalPages, currentPage + 1); setCurrentPage(p); fetchFarmers(p, statusFilter, searchQuery, pageSize); }}
               disabled={currentPage >= totalPages}
-              className="p-2 rounded-xl border border-slate-200/90 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-[#202521] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-slate-300"
+              title="Next Page"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       </div>
-
+      
       {/* =========== MODAL: FULL DOSSIER INSPECTION =========== */}
       {mounted && selectedFarmer && createPortal(
         <div 

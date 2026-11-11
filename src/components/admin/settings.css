@@ -1,0 +1,35 @@
+.settings-workspace .settings-navigation { background:var(--com-surface); border:1px solid var(--com-line); border-radius:14px; padding:6px; }
+.settings-workspace .settings-navigation nav { gap:5px; margin:0; }
+.settings-workspace .settings-navigation button { border:0; padding:11px 18px; border-radius:9px; color:var(--com-muted); font-size:12px; font-weight:500; }
+.settings-workspace .settings-navigation button[aria-pressed=true] { background:var(--com-soft); color:var(--com-accent); }
+.settings-workspace .settings-navigation button:hover { background:var(--com-bg); color:var(--com-accent); }
+.settings-workspace .settings-panel { background:var(--com-surface); border:1px solid var(--com-line); border-radius:18px; box-shadow:0 4px 8px #24453403,0 12px 32px #24453405; }
+.settings-workspace .settings-panel > div:first-child { border-color:var(--com-line); }
+.settings-workspace h2 { font-size:16px; font-weight:500; letter-spacing:-.025em; }
+.settings-workspace h3 { font-weight:500; }
+.settings-workspace label { font-weight:500; }
+.settings-workspace .settings-panel.max-w-3xl { width:100%; max-width:780px; margin-inline:0; }
+.settings-workspace :is(button,a) { font-weight:500; }
+.settings-workspace .settings-panel :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea) { background:var(--com-bg); border-color:var(--com-line); box-shadow:none; }
+.settings-workspace :is(.text-\[\#237227\],.text-farm-600,.text-farm-700) { color:var(--com-accent); }
+.settings-workspace .settings-panel :is(.bg-slate-50\/70,.bg-slate-50\/50,.bg-slate-100\/70) { background:var(--com-bg); }
+.settings-workspace :is(.bg-emerald-50,.bg-emerald-500\/15,.bg-amber-500\/15) { background:var(--com-soft); color:var(--com-accent); }
+.settings-workspace table { font-size:12px; }
+.settings-workspace thead { background:var(--com-bg); color:var(--com-muted); }
+.settings-workspace th { font-weight:500; text-transform:none; letter-spacing:0; }
+.settings-workspace tbody tr:hover { background:var(--com-soft); }
+.settings-workspace .animate-pulse { animation:none; }
+@media(prefers-reduced-motion:no-preference) {
+ .settings-workspace .settings-panel { animation:communications-arrive .4s cubic-bezier(.22,1,.36,1) backwards; }
+ .settings-workspace button { transition:background-color .25s,color .25s,border-color .25s,box-shadow .25s,transform .25s; }
+}
+@media(hover:hover) and (prefers-reduced-motion:no-preference) {
+ .settings-workspace button.bg-\[\#237227\]:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 12px #24453415; }
+}
+@media(max-width:640px) {
+ .settings-workspace .settings-panel { padding:20px; border-radius:14px; }
+ .settings-workspace .settings-navigation button { padding:10px 13px; font-size:11px; }
+}
+
+.settings-workspace .edit-toggle-btn { transform: none !important; }
+.settings-workspace .edit-toggle-btn:hover { transform: none !important; }

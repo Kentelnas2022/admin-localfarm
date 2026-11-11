@@ -1,8 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import './communications.css';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { 
+import {
+  Check,
+  RefreshCw,
   Megaphone, 
   Plus, 
   Search, 
@@ -58,10 +62,50 @@ export function AdminAnnouncements({ adminEmail = 'admin@localfarm.com', totalFa
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(4);
+  const [pageSize, setPageSize] = useState(10);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(items: Announcement[]) {
+    if (selectedIds.size === items.length && items.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map(a => a.id)));
+    }
+  }
 
   // Modern modal state (Create & Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    composerRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setIsModalOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const elements = Array.from(composerRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input,textarea,[tabindex="0"]') || []).filter(el => el.getClientRects().length > 0);
+      const first = elements[0], last = elements[elements.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === composerRef.current)) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === composerRef.current)) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', onKeyDown); previousFocus?.focus(); };
+  }, [isModalOpen]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [rebroadcastingId, setRebroadcastingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -373,628 +417,511 @@ export function AdminAnnouncements({ adminEmail = 'admin@localfarm.com', totalFa
   const PreviewIcon = (categoryConfig[category] || categoryConfig['General Notice']).icon;
 
   return (
-    <div className="space-y-6">
+    <div className="admin-communications announcements-workspace space-y-6">
 
-      {/* 1. UNIFORM INTERACTIVE KPI METRIC TILES */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiCards.map((card) => {
+      <div className="communications-metrics">
+        {kpiCards.map((card, index) => {
           const CardIcon = card.icon;
-          const isSelected = selectedCategory === card.id;
           return (
-            <button
-              key={card.id}
-              type="button"
-              onClick={() => {
-                setSelectedCategory(card.id);
-                setCurrentPage(1);
-              }}
-              className={`group relative text-left bg-white dark:bg-[#1a1e1b] rounded-2xl p-5 border transition-all duration-200 flex flex-col justify-between min-h-[148px] cursor-pointer overflow-hidden ${
-                isSelected
-                  ? 'border-slate-300 dark:border-slate-700 shadow-md bg-slate-50/50 dark:bg-[#1f2220]'
-                  : 'border-slate-200/90 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-2xs'
-              }`}
-            >
-
-              <div className="flex items-center justify-between w-full">
-                <div
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 border ${
-                    isSelected
-                      ? 'bg-[#237227] text-white border-[#237227] shadow-2xs scale-105'
-                      : 'bg-slate-100 dark:bg-[#131614] text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-slate-800 group-hover:bg-slate-200/70 dark:group-hover:bg-slate-700'
-                  }`}
-                >
-                  <CardIcon className="h-4 w-4" />
-                </div>
-
-                <span
-                  className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition-colors ${
-                    isSelected
-                      ? 'text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
-                      : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#131614] border-slate-200/70 dark:border-slate-800'
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      isSelected ? 'bg-[#237227] animate-pulse' : 'bg-slate-300 dark:bg-slate-600'
-                    }`}
-                  />
-                  {card.tag}
-                </span>
-              </div>
-
-              <div className="pt-3">
-                <div className={`text-[28px] font-extrabold tracking-tight leading-none tabular-nums ${
-                  isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-slate-200'
-                }`}>
-                  {card.value}
-                </div>
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-2">{card.title}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">{card.subtitle}</div>
-              </div>
+            <button key={card.id} type="button" className="communications-metric"
+              aria-pressed={selectedCategory === card.id}
+              style={{ animationDelay: index * 55 + 'ms' }}
+              onClick={() => { setSelectedCategory(card.id); setCurrentPage(1); }}>
+              <span className="communications-metric-heading">
+                <span>{card.title}</span>
+                <span className="communications-metric-icon"><CardIcon size={18} strokeWidth={1.7} /></span>
+              </span>
+              <strong>{card.value}</strong>
+              <span className="communications-metric-detail">{card.subtitle}</span>
             </button>
           );
         })}
       </div>
 
-      {/* =========== 2. SEARCH & FILTER TOOLBAR (UNIFORM TO VERIFICATION) =========== */}
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
-          
-          {/* Search bar */}
-          <div className="relative flex-1 w-full sm:max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
+      {/* =========== 2. ANNOUNCEMENTS UNIFIED TABLE (MATCHING REFERENCE IMAGE) =========== */}
+      <div className="communications-panel bg-white dark:bg-[#161816] rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 select-none">
+        
+        {/* Top Dropdown Selection & Tools (No dragging slide / scrollbar) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+          {/* Notice Category Dropdown (Exact match to reference UI) */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={selectedCategory}
               onChange={(e) => {
-                setSearchQuery(e.target.value);
+                setSelectedCategory(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search announcements by title or content..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-[#131614] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+              aria-label="Filter notices by category"
+              className="appearance-none bg-white dark:bg-[#161816] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
+            >
+              <option value="all" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                All notices ({totalAnnouncementCount})
+              </option>
+              <option value="pinned" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Pinned Banners ({pinnedCount})
+              </option>
+              <option value="Scam Alert" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Scam Alerts ({scamCount})
+              </option>
+              <option value="New Feature" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                New Features ({announcements.filter(a => a.category === 'New Feature' && !a.is_archived).length})
+              </option>
+              <option value="Platform Maintenance" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Maintenance ({announcements.filter(a => a.category === 'Platform Maintenance' && !a.is_archived).length})
+              </option>
+              <option value="Community Guidelines" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Guidelines ({announcements.filter(a => a.category === 'Community Guidelines' && !a.is_archived).length})
+              </option>
+              <option value="General Notice" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                General Notices ({announcements.filter(a => a.category === 'General Notice' && !a.is_archived).length})
+              </option>
+              <option value="archived" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
+                Archive ({totalArchived})
+              </option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
           </div>
 
-          {/* Controls: Segmented Status Filter + Actions */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* Category Dropdown (Uniform) */}
-            <div className="relative inline-flex items-center">
-              <select
-                value={selectedCategory}
-                onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="all" className="dark:bg-[#1a1e1b]">All Categories</option>
-                <option value="pinned" className="dark:bg-[#1a1e1b]">Pinned Banners ({pinnedCount})</option>
-                <option value="Scam Alert" className="dark:bg-[#1a1e1b]">Scam Alerts ({scamCount})</option>
-                <option value="New Feature" className="dark:bg-[#1a1e1b]">New Features</option>
-                <option value="Platform Maintenance" className="dark:bg-[#1a1e1b]">Maintenance</option>
-                <option value="Community Guidelines" className="dark:bg-[#1a1e1b]">Guidelines</option>
-                <option value="archived" className="dark:bg-[#1a1e1b]">Archived ({totalArchived})</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+          {/* Quick Search & Tools on Far Right */}
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search..."
+                className="w-44 sm:w-52 pl-8 pr-7 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-[#151716] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-[#237227]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
 
-            {/* Export CSV */}
+            {/* Export */}
             <a
               href="/api/admin/export?type=announcements"
               download
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#1a1e1b] hover:bg-slate-50 dark:hover:bg-[#222723] text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs whitespace-nowrap cursor-pointer"
             >
               <Download className="h-3.5 w-3.5 text-slate-400" />
-              <span>Export CSV</span>
+              <span>Export</span>
             </a>
 
-            {/* + New Announcement Button */}
+            {/* + New Announcement with Primary Palette */}
             <button
               type="button"
               onClick={handleOpenCreateModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] active:scale-[0.98] text-white text-xs font-bold shadow-xs whitespace-nowrap transition-all cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>New Announcement</span>
+              <span>New Notice</span>
             </button>
           </div>
-
         </div>
-      </div>
 
-      {/* =========== 3. MAIN FEED CARD =========== */}
-      <div className="bg-white dark:bg-[#1a1e1b] rounded-3xl p-6 sm:p-7 border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-5">
-
-        {/* Header with Title and Status */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Public Announcements</h2>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-[#131614] text-slate-600 dark:text-slate-400 border border-slate-200/70 dark:border-slate-800">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#237227] animate-pulse" />
-              Synced ({totalAnnouncementCount})
-            </span>
+        {/* Batch Selection Action Bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-farm-50/70 dark:bg-farm-950/40 border border-farm-200/80 dark:border-farm-900/60 shadow-xs text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white">
+              <span className="h-2 w-2 rounded-full bg-[#237227] animate-pulse" />
+              <span>{selectedIds.size} {selectedIds.size === 1 ? 'announcement' : 'announcements'} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  Array.from(selectedIds).forEach(id => { const found = announcements.find(a => a.id === id); if (found) handleToggleArchive(id, Boolean(found.is_archived)); });
+                  setSelectedIds(new Set());
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-xs shadow-2xs cursor-pointer"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                <span>Archive</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-medium text-xs px-2 py-1 cursor-pointer transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Broadcast official platform directives, scam warnings, and feature updates.
-          </p>
-        </div>
+        )}
 
-        {/* Announcements List Container */}
-        <div className="min-h-[440px]">
-          {isLoading ? (
-            <div className="py-20 text-center text-slate-400 dark:text-[#8a8d91] text-xs">Loading announcements...</div>
-          ) : filtered.length === 0 ? (
-            <div className="py-16 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 dark:border-[#393a3b] rounded-2xl bg-slate-50/40 dark:bg-[#18191a]/40 p-8 space-y-3">
-              <div className="h-11 w-11 rounded-2xl bg-slate-100 dark:bg-[#242526] text-slate-400 dark:text-[#8a8d91] flex items-center justify-center">
-                <Megaphone className="h-5 w-5" />
-              </div>
-              <div className="max-w-sm">
-                <div className="text-xs font-bold text-slate-800 dark:text-[#e4e6eb]">
-                  {selectedCategory === 'archived'
-                    ? 'No archived announcements'
-                    : 'No announcements matching filter'}
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-[#8a8d91] mt-1">
-                  {selectedCategory === 'archived'
-                    ? 'Archived announcements will appear here once moved.'
-                    : 'Click "+ New Announcement" above to publish a notice.'}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {paginatedAnnouncements.map((item) => {
-                const config = categoryConfig[item.category] || categoryConfig['General Notice'];
-                const Icon = config.icon;
-                const isAnimating = animatingArchiveId === item.id;
-                const isPinnedActive = Boolean(item.is_pinned && !item.is_archived);
-
-                return (
-                  <div
-                    key={item.id}
-                    className={`group relative p-5 rounded-2xl border border-slate-200/80 dark:border-[#393a3b] bg-white dark:bg-[#242526] hover:border-slate-300 dark:hover:border-[#4e4f50] shadow-2xs hover:shadow-md transition-all duration-200 space-y-2.5 ${
-                      isAnimating ? 'opacity-30 scale-[0.99]' : 'opacity-100'
-                    }`}
-                  >
-                    {/* Top Meta Line: Monochrome Category Pill, Pinned Pill, Date */}
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${config.badge}`}>
-                          <Icon className="h-3 w-3 text-slate-500 dark:text-[#8a8d91]" />
-                          <span>{config.label}</span>
-                        </span>
-
-                        {isPinnedActive && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#237227] dark:text-emerald-400 bg-[#237227]/10 border border-[#237227]/20 px-2 py-0.5 rounded-md">
-                            <Pin className="h-3 w-3 fill-current" />
-                            <span>Pinned</span>
-                          </span>
-                        )}
-
-                        {item.is_archived && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-[#8a8d91] bg-slate-100 dark:bg-[#18191a] border border-slate-200/80 dark:border-[#393a3b] px-2 py-0.5 rounded-md">
-                            <Archive className="h-3 w-3" />
-                            <span>Archived</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <span className="text-[11px] text-slate-400 dark:text-[#8a8d91] font-medium tabular-nums flex items-center gap-1.5">
-                        <Calendar className="h-3 w-3 opacity-70" />
-                        {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
-                    </div>
-
-                    {/* Title & Content */}
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-[#e4e6eb] leading-snug tracking-tight">
-                        {item.title}
-                      </h3>
-                      <p className="text-xs text-slate-600 dark:text-[#b0b3b8] leading-relaxed font-normal">
-                        {item.content}
-                      </p>
-                    </div>
-
-                    {/* Bottom Editorial Footer: Audience + Reach on Left, Unified Ghost Pill Toolbar on Right */}
-                    <div className="pt-2.5 border-t border-slate-100 dark:border-[#393a3b]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-                      <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-[#8a8d91]">
-                        <span className="inline-flex items-center gap-1.5 font-medium">
-                          <Users className="h-3.5 w-3.5 text-slate-400 dark:text-[#8a8d91]" />
-                          <span>{item.target_audience || 'All Farmers & Buyers'}</span>
-                        </span>
-                        <span className="text-slate-300 dark:text-[#393a3b]">•</span>
-                        <span className="inline-flex items-center gap-1 tabular-nums">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#237227]/70" />
-                          <span>{(item.reach_count ?? totalFarmersCount).toLocaleString()} reached</span>
-                        </span>
-                      </div>
-
-                      {/* Unified Ghost Action Pill Bar */}
-                      <div className="inline-flex items-center gap-0.5 p-1 rounded-xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b] self-end sm:self-auto">
-                        {!item.is_archived && (
-                          <button
-                            type="button"
-                            onClick={() => handleRebroadcast(item)}
-                            disabled={rebroadcastingId === item.id}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg text-slate-700 dark:text-[#e4e6eb] hover:bg-[#237227] hover:text-white transition-all cursor-pointer disabled:opacity-50"
-                            title="Send real in-app push notification to all farmers & buyers"
-                          >
-                            <Send className="h-3 w-3" />
-                            <span>{rebroadcastingId === item.id ? 'Pushing...' : 'Push Notify'}</span>
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(item)}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-lg text-slate-600 dark:text-[#b0b3b8] hover:bg-white dark:hover:bg-[#242526] hover:text-slate-900 dark:hover:text-white hover:shadow-2xs transition-all cursor-pointer"
-                          title="Edit announcement"
-                        >
-                          <Edit3 className="h-3 w-3" />
-                          <span>Edit</span>
-                        </button>
-
-                        {!item.is_archived && (
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePin(item.id)}
-                            className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                              item.is_pinned
-                                ? 'bg-white dark:bg-[#242526] text-[#237227] dark:text-emerald-400 font-bold shadow-2xs'
-                                : 'text-slate-600 dark:text-[#b0b3b8] hover:bg-white dark:hover:bg-[#242526] hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                            title={item.is_pinned ? 'Unpin from top' : 'Pin to top banner'}
-                          >
-                            <Pin className="h-3 w-3" />
-                            <span>{item.is_pinned ? 'Pinned' : 'Pin'}</span>
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => handleToggleArchive(item.id, Boolean(item.is_archived))}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-lg text-slate-600 dark:text-[#b0b3b8] hover:bg-white dark:hover:bg-[#242526] hover:text-slate-900 dark:hover:text-white hover:shadow-2xs transition-all cursor-pointer"
-                          title={item.is_archived ? 'Restore to active feed' : 'Archive announcement'}
-                        >
-                          {item.is_archived ? (
-                            <>
-                              <ArchiveRestore className="h-3 w-3" />
-                              <span>Restore</span>
-                            </>
-                          ) : (
-                            <>
-                              <Archive className="h-3 w-3" />
-                              <span>Archive</span>
-                            </>
-                          )}
-                        </button>
-
-                        {/* Delete Button with inline confirmation */}
-                        {deleteConfirmId === item.id ? (
-                          <div className="flex items-center gap-1.5 bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] px-2 py-0.5 rounded-lg">
-                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200">Delete?</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(item.id)}
-                              className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded transition-colors cursor-pointer shadow-2xs"
-                            >
-                              Yes
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteConfirmId(null)}
-                              className="px-1.5 py-0.5 border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-slate-600 dark:text-[#b0b3b8] text-[10px] font-medium rounded transition-colors cursor-pointer"
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmId(item.id)}
-                            className="p-1.5 text-slate-400 dark:text-[#8a8d91] hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all cursor-pointer"
-                            title="Delete announcement"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Announcements Pagination Footer */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100 dark:border-[#393a3b] text-xs text-slate-500 dark:text-[#b0b3b8]">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div>
-                Showing <span className="font-semibold text-slate-800 dark:text-[#e4e6eb]">{totalAnnouncementCount === 0 ? 0 : startAnnIndex + 1}</span> to{' '}
-                <span className="font-semibold text-slate-800 dark:text-[#e4e6eb]">{Math.min(startAnnIndex + pageSize, totalAnnouncementCount)}</span> of{' '}
-                <span className="font-semibold text-slate-800 dark:text-[#e4e6eb]">{totalAnnouncementCount}</span> announcements
-              </div>
-
-              {/* Page Size Selector */}
-              <div className="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-[#393a3b]">
-                <span className="text-[11px]">Per page:</span>
-                {[4, 8, 12].map((size) => (
+        {/* Minimalist Floating Card Row Table */}
+        <div className="overflow-x-auto min-h-[440px]">
+          <table className="w-full text-left text-xs border-separate border-spacing-y-2">
+            <thead>
+              <tr className="bg-[#f8f9fa] dark:bg-[#181b19] text-slate-400 dark:text-slate-500 font-medium text-[11px] tracking-tight">
+                <th className="py-3 pl-4 pr-1 first:rounded-l-xl w-10">
                   <button
-                    key={size}
                     type="button"
-                    onClick={() => {
-                      setPageSize(size);
-                      setCurrentPage(1);
-                    }}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                      pageSize === size
+                    onClick={() => toggleSelectAll(paginatedAnnouncements)}
+                    aria-label={selectedIds.size === paginatedAnnouncements.length ? 'Deselect all' : 'Select all'}
+                    className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                      selectedIds.size > 0
                         ? 'bg-[#237227] text-white shadow-2xs'
-                        : 'border border-slate-200 dark:border-[#393a3b] bg-slate-50 dark:bg-[#18191a] text-slate-600 dark:text-[#b0b3b8] hover:border-slate-300'
+                        : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
                     }`}
                   >
-                    {size}
+                    {selectedIds.size === paginatedAnnouncements.length && paginatedAnnouncements.length > 0 ? (
+                      <Check className="h-2.5 w-2.5 stroke-[3]" />
+                    ) : null}
                   </button>
-                ))}
-              </div>
-            </div>
+                </th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">Notice ID</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Notice & Preview</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Category</th>
+                <th className="py-3 px-3 font-medium whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Audience</th>
+                <th className="py-3 px-4 font-medium whitespace-nowrap">Published Date</th>
+                <th className="py-3 px-4 text-right font-medium last:rounded-r-xl whitespace-nowrap w-28 min-w-[112px] max-w-[112px]">Actions</th>
+              </tr>
+            </thead>
 
-            <div className="flex items-center gap-1.5 self-end sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={safeCurrentPage <= 1}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-[#b0b3b8]"
-                title="Previous Page"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={8} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <RefreshCw className="h-6 w-6 animate-spin text-[#237227]" />
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">Loading notices...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-24 text-center text-xs text-slate-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <Megaphone className="h-7 w-7 text-slate-300 dark:text-slate-600" />
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">No announcements found</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedAnnouncements.map((item) => {
+                  const isChecked = selectedIds.has(item.id);
+                  const isMenuOpen = activeActionId === item.id;
+                  const isPinnedActive = Boolean(item.is_pinned && !item.is_archived);
+                  const isArchived = Boolean(item.is_archived);
+                  const dateStr = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  const timeStr = new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-              {Array.from({ length: totalAnnouncementPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  type="button"
-                  onClick={() => setCurrentPage(page)}
-                  className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    safeCurrentPage === page
-                      ? 'bg-[#237227] text-white shadow-2xs'
-                      : 'border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-slate-700 dark:text-[#e4e6eb]'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => setCurrentPage(prev => Math.min(totalAnnouncementPages, prev + 1))}
-                disabled={safeCurrentPage >= totalAnnouncementPages}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer text-slate-600 dark:text-[#b0b3b8]"
-                title="Next Page"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ========================================================== */}
-      {/* 3. MINIMALIST COMPOSER MODAL WITH LIVE MOBILE PREVIEW      */}
-      {/* ========================================================== */}
-      {mounted && isModalOpen && createPortal(
-        <div
-          onClick={() => { setIsModalOpen(false); setEditingId(null); }}
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-all animate-fade-in overflow-y-auto"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#242526] rounded-3xl border border-slate-200/80 dark:border-[#393a3b] shadow-2xl max-w-xl w-full p-6 sm:p-7 space-y-5 my-auto animate-in fade-in zoom-in-95 duration-200"
-          >
-            {/* Minimalist Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-[#393a3b]">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-[#237227]/12 text-[#237227] dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Megaphone className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-[#e4e6eb] leading-tight">
-                    {editingId ? 'Edit Announcement' : 'Create Announcement'}
-                  </h3>
-                  <p className="text-xs text-slate-400 dark:text-[#8a8d91] mt-0.5">
-                    {editingId ? 'Refine headline, message, or category of this notice.' : 'Compose an official notice and preview how it appears on mobile.'}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => { setIsModalOpen(false); setEditingId(null); }}
-                className="h-8 w-8 rounded-full bg-slate-100 dark:bg-[#3a3b3c] hover:bg-slate-200 dark:hover:bg-[#4e4f50] text-slate-500 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-
-              {/* Category Selection Segmented Chips (Clean Lucide Icons, No Emojis) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#e4e6eb] mb-2">Notice Category</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { id: 'Scam Alert', label: 'Scam Alert', desc: 'Fraud & security warning', icon: ShieldAlert },
-                    { id: 'New Feature', label: 'New Feature', desc: 'App tools & updates', icon: Sparkles },
-                    { id: 'Platform Maintenance', label: 'Maintenance', desc: 'Server downtime schedule', icon: Wrench },
-                    { id: 'Community Guidelines', label: 'Guidelines', desc: 'Produce pricing & rules', icon: BookOpen },
-                  ] as const).map(cat => {
-                    const CatIcon = cat.icon;
-                    const isSelected = category === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setCategory(cat.id)}
-                        className={`p-3 rounded-2xl text-left border transition-all cursor-pointer flex items-start gap-2.5 ${
-                          isSelected
-                            ? 'border-[#237227] bg-[#237227]/8 dark:bg-[#237227]/15 text-slate-900 dark:text-white shadow-2xs'
-                            : 'border-slate-200/80 dark:border-[#393a3b] bg-slate-50/60 dark:bg-[#18191a] text-slate-600 dark:text-[#b0b3b8] hover:border-slate-300 dark:hover:border-[#4e4f50]'
-                        }`}
-                      >
-                        <div
-                          className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                            isSelected
-                              ? 'bg-[#237227] text-white'
-                              : 'bg-slate-200/70 dark:bg-[#242526] text-slate-500 dark:text-[#8a8d91]'
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`group transition-all duration-150 ${
+                        isChecked
+                          ? 'shadow-[0_4px_16px_rgba(35,114,39,0.08)] ring-1 ring-[#237227]/30 dark:ring-emerald-400/30 rounded-2xl bg-farm-50/20 dark:bg-[#1a202c]'
+                          : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40 rounded-xl'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className={`py-3.5 pl-4 pr-1 align-middle w-10 first:rounded-l-2xl ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSelect(item.id)}
+                          className={`w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-[#237227] text-white shadow-2xs'
+                              : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400'
                           }`}
                         >
-                          <CatIcon className="h-3.5 w-3.5" />
+                          {isChecked && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </button>
+                      </td>
+
+                      {/* ID No. */}
+                      <td className={`py-3.5 px-3 align-middle font-mono text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        ANN-{String(item.id).slice(-4).padStart(4, '0')}
+                      </td>
+
+                      {/* Title & Preview */}
+                      <td 
+                        onClick={() => handleOpenEditModal(item)}
+                        className={`py-3.5 px-4 align-middle cursor-pointer max-w-[280px] ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}
+                      >
+                        <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                          {item.title}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold leading-tight">{cat.label}</div>
-                          <div className="text-[10px] text-slate-400 dark:text-[#8a8d91] mt-0.5 leading-tight truncate">{cat.desc}</div>
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                          {item.content}
                         </div>
-                      </button>
-                    );
+                      </td>
+
+                      {/* Category Pill */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-[#18191a] text-slate-700 dark:text-[#b0b3b8] border border-slate-200 dark:border-[#393a3b]">
+                          {item.category}
+                        </span>
+                      </td>
+
+                      {/* Status / Priority (Minimalist Dot Pill) */}
+                      <td className={`py-3.5 px-3 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        {isArchived ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200/80 dark:border-slate-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                            <span>Archived</span>
+                          </span>
+                        ) : isPinnedActive ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#237227] dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#237227] shrink-0" />
+                            <span>Pinned</span>
+                          </span>
+                        ) : item.priority === 'Urgent' || item.priority === 'High' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                            <span>Urgent</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/60">
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                            <span>Active</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Target Audience */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap text-xs text-slate-600 dark:text-slate-300 ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span>{item.target_audience || 'All Farmers & Buyers'}</span>
+                        </div>
+                      </td>
+
+                      {/* Published Date (2 lines) */}
+                      <td className={`py-3.5 px-4 align-middle whitespace-nowrap ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">{dateStr}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">{timeStr}</div>
+                      </td>
+
+                      {/* Actions: Fixed Position Trigger */}
+                      <td className={`py-3.5 px-4 text-right align-middle whitespace-nowrap last:rounded-r-2xl w-28 min-w-[112px] max-w-[112px] relative ${isChecked ? 'bg-farm-50/20 dark:bg-[#1a202c]' : ''}`}>
+                        <div className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={() => setActiveActionId(isMenuOpen ? null : item.id)}
+                            className={`inline-flex items-center justify-center gap-1.5 w-24 px-2.5 py-1 rounded-lg border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+                              isMenuOpen
+                                ? 'border-[#237227] bg-farm-50 text-[#237227] dark:bg-farm-950/50 dark:text-emerald-400 dark:border-emerald-600'
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            <span>Actions</span>
+                            <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isMenuOpen ? 'rotate-180 text-[#237227]' : ''}`} />
+                          </button>
+
+                          {isMenuOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setActiveActionId(null)} />
+                              <div className="absolute right-0 top-full mt-1.5 w-38 rounded-xl bg-white dark:bg-[#242526] border border-slate-200 dark:border-slate-700 shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionId(null);
+                                    handleOpenEditModal(item);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5 text-slate-400" />
+                                  <span>Edit Notice</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionId(null);
+                                    handleTogglePin(item.id);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Pin className="h-3.5 w-3.5 text-slate-400" />
+                                  <span>{isPinnedActive ? 'Unpin Banner' : 'Pin to Top'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionId(null);
+                                    handleToggleArchive(item.id, Boolean(item.is_archived));
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Archive className="h-3.5 w-3.5 text-slate-400" />
+                                  <span>{isArchived ? 'Restore' : 'Archive'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionId(null);
+                                    setDeleteConfirmId(item.id);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <span>Delete Notice</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 3. PAGINATION FOOTER (MATCHING REFERENCE IMAGE) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div>
+              Showing <span className="font-semibold text-slate-800 dark:text-white">{filtered.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-semibold text-slate-800 dark:text-white">{Math.min(safeCurrentPage * pageSize, filtered.length)}</span> of{' '}
+              <span className="font-semibold text-slate-800 dark:text-white">{filtered.length}</span> notices
+            </div>
+            <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-700">
+              <span className="text-[11px] text-slate-400">Per page:</span>
+              {[10, 20, 50].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => {
+                    setPageSize(size);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                    pageSize === size
+                      ? 'bg-[#237227] text-white shadow-2xs'
+                      : 'border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={safeCurrentPage <= 1}
+              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="h-3.5 w-3.5 text-slate-500" />
+            </button>
+
+            {Array.from({ length: totalAnnouncementPages }, (_, i) => i + 1)
+              .filter((page) => page === 1 || page === totalAnnouncementPages || Math.abs(page - safeCurrentPage) <= 1)
+              .map((page, idx, arr) => {
+                const prevPage = arr[idx - 1];
+                const showEllipsis = prevPage && page - prevPage > 1;
+
+                return (
+                  <React.Fragment key={page}>
+                    {showEllipsis && <span className="px-1 text-slate-400">...</span>}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        safeCurrentPage === page
+                          ? 'bg-[#237227] text-white shadow-2xs'
+                          : 'border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.min(totalAnnouncementPages, prev + 1))}
+              disabled={safeCurrentPage >= totalAnnouncementPages}
+              className="p-1.5 rounded-lg border border-slate-200/90 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+{/* ========================================================== */}
+      {mounted && isModalOpen && createPortal(
+        <div className="announcement-composer-backdrop" onClick={e => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
+        <div className="admin-communications announcement-composer" role="dialog" aria-modal="true" aria-labelledby="composer-title" tabIndex={-1} ref={composerRef}>
+          <header className="composer-header">
+            <div><h2 id="composer-title">{editingId ? 'Edit announcement' : 'Create announcement'}</h2><p>Choose a notice category, then write an update for your community.</p></div>
+            <button type="button" className="composer-close" aria-label="Close announcement composer" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
+          </header>
+          <form className="composer-form" onSubmit={handleSubmit}>
+            <div className="composer-layout">
+              <section className="composer-categories" aria-labelledby="category-heading">
+                <div className="composer-section-heading"><span>01</span><div><h3 id="category-heading">Notice category</h3><p>Help your community recognize the update.</p></div></div>
+                <div className="composer-category-list">
+                  {([
+                    { id: 'Scam Alert', label: 'Scam alert', desc: 'Fraud prevention & security advice', icon: ShieldAlert },
+                    { id: 'New Feature', label: 'New feature', desc: 'New tools for your community', icon: Sparkles },
+                    { id: 'Platform Maintenance', label: 'Maintenance', desc: 'Service schedules & downtime', icon: Wrench },
+                    { id: 'Community Guidelines', label: 'Community guidelines', desc: 'Helpful reminders & platform rules', icon: BookOpen },
+                    { id: 'General Notice', label: 'General notice', desc: 'Everyday news & community updates', icon: Megaphone },
+                  ] as const).map(cat => {
+                    const Icon = cat.icon;
+                    return <button type="button" className="composer-category" key={cat.id} aria-pressed={category === cat.id} onClick={() => setCategory(cat.id)}>
+                      <span className="composer-category-icon"><Icon size={21} strokeWidth={1.6} /></span>
+                      <span><strong>{cat.label}</strong><small>{cat.desc}</small></span>
+                      <span className="composer-radio" aria-hidden="true" />
+                    </button>;
                   })}
                 </div>
-              </div>
-
-              {/* Title Field */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#e4e6eb] mb-1.5">
-                  Headline Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Official Advisory: Verify Fertilizer Suppliers"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-slate-50/50 dark:bg-[#18191a] text-xs text-slate-900 dark:text-[#e4e6eb] placeholder:text-slate-400 dark:placeholder:text-[#8a8d91] outline-none focus:bg-white dark:focus:bg-[#18191a] focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/15 transition-all font-semibold"
-                />
-              </div>
-
-              {/* Message Content */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-[#e4e6eb]">Detailed Message</label>
-                  <span className="text-[10px] text-slate-400 dark:text-[#8a8d91] tabular-nums">{content.length}/400</span>
+              </section>
+              <section className="composer-message" aria-labelledby="message-heading">
+                <div className="composer-section-heading"><span>02</span><div><h3 id="message-heading">Announcement details</h3><p>Keep it clear, useful, and easy to read.</p></div></div>
+                <label htmlFor="announcement-title">Headline</label>
+                <input id="announcement-title" required maxLength={160} value={title} onChange={e => setTitle(e.target.value)} placeholder="Give your community a helpful headline" />
+                <div className="composer-message-label"><label htmlFor="announcement-content">Message</label><span>{content.length}/400</span></div>
+                <textarea id="announcement-content" required maxLength={400} value={content} onChange={e => setContent(e.target.value)} placeholder="What would you like your community to know?" />
+                <label className="composer-pin"><span><strong>Pin to the home feed</strong><small>Keep this notice at the top of the mobile app.</small></span><input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} /><span className="composer-switch" aria-hidden="true" /></label>
+              </section>
+              <aside className="composer-preview" aria-labelledby="preview-heading">
+                <div className="composer-section-heading"><span>03</span><div><h3 id="preview-heading">Live preview</h3><p>A little look before you publish.</p></div></div>
+                <div className="composer-preview-stage">
+                  <div className="composer-app-brand"><span><Megaphone size={18} /></span>LocalFarm <small>Community</small></div>
+                  <article className="composer-preview-card">
+                    <div className="composer-preview-meta"><span><PreviewIcon size={13} />{categoryConfig[category]?.label || category}</span>{isPinned && <span><Pin size={12} />Pinned</span>}</div>
+                    <h4>{title.trim() || 'Your next community update'}</h4>
+                    <p>{content.trim() || 'Your message will appear here as you write. Share a clear, thoughtful update with farmers and buyers.'}</p>
+                    <footer>LocalFarm team<span>Just now</span></footer>
+                  </article>
+                  <span className="composer-preview-caption">{isPinned ? 'Pinned home banner' : 'Community feed notice'} · Mobile app preview</span>
                 </div>
-                <textarea
-                  required
-                  rows={3}
-                  maxLength={400}
-                  placeholder="Write clear, concise instructions or advisories for local farmers..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-[#393a3b] bg-slate-50/50 dark:bg-[#18191a] text-xs text-slate-900 dark:text-[#e4e6eb] placeholder:text-slate-400 dark:placeholder:text-[#8a8d91] outline-none focus:bg-white dark:focus:bg-[#18191a] focus:border-[#237227] focus:ring-2 focus:ring-[#237227]/15 transition-all leading-relaxed"
-                />
-              </div>
-
-              {/* Uniform #237227 Green Toggle for Pin Banner */}
-              <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b] cursor-pointer select-none">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                      isPinned
-                        ? 'bg-[#237227] text-white'
-                        : 'bg-slate-200/70 dark:bg-[#242526] text-slate-500 dark:text-[#8a8d91]'
-                    }`}
-                  >
-                    <Pin className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-[#e4e6eb]">Pin as Top Mobile Banner</div>
-                    <div className="text-[10px] text-slate-500 dark:text-[#8a8d91] mt-0.5">Promotes to the top of farmer & buyer mobile feeds</div>
-                  </div>
-                </div>
-
-                <div className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isPinned}
-                    onChange={(e) => setIsPinned(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 dark:bg-[#3a3b3c] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#237227]" />
-                </div>
-              </label>
-
-              {/* LIVE MOBILE BANNER PREVIEW */}
-              <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#18191a] border border-slate-200/70 dark:border-[#393a3b] space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#8a8d91] flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#237227] animate-pulse" />
-                    Live Mobile App Preview
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-400 dark:text-[#8a8d91]">
-                    {isPinned ? 'Top Home Banner' : 'Standard Feed Notice'}
-                  </span>
-                </div>
-
-                <div className="relative p-3.5 rounded-xl bg-white dark:bg-[#242526] border border-slate-200/80 dark:border-[#393a3b] overflow-hidden space-y-1.5">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-[#18191a] text-slate-700 dark:text-[#b0b3b8] font-semibold border border-slate-200/70 dark:border-[#393a3b]">
-                        <PreviewIcon className="h-2.5 w-2.5" />
-                        <span>{categoryConfig[category]?.label || category}</span>
-                      </span>
-                      {isPinned && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#237227]/10 text-[#237227] dark:text-emerald-400 font-bold">
-                          <Pin className="h-2.5 w-2.5 fill-current" />
-                          Pinned
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-slate-400">Just now</span>
-                  </div>
-                  <div className="text-xs font-bold text-slate-900 dark:text-[#e4e6eb] leading-snug">
-                    {title.trim() || 'Your announcement headline will appear here...'}
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-[#b0b3b8] line-clamp-2 leading-relaxed">
-                    {content.trim() || 'As you type your advisory message above, this live preview shows how farmers and buyers will see it inside the LocalFarm mobile app.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-[#393a3b]">
-                <button
-                  type="button"
-                  onClick={() => { setIsModalOpen(false); setEditingId(null); }}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#393a3b] text-xs font-bold text-slate-600 dark:text-[#b0b3b8] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#237227] hover:bg-[#1c5c1f] text-white text-xs font-bold shadow-xs hover:shadow-md transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  <span>{isSubmitting ? 'Saving...' : editingId ? 'Save Changes' : 'Publish & Push Notify'}</span>
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>,
-        document.body
+              </aside>
+            </div>
+            <footer className="composer-footer"><span className="composer-audience"><Users size={14} strokeWidth={1.6} />Visible to farmers & buyers</span><div><button type="button" className="composer-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button><button type="submit" className="composer-publish" disabled={isSubmitting || !title.trim() || !content.trim()}><Send size={15} />{isSubmitting ? 'Saving…' : editingId ? 'Save changes' : 'Publish announcement'}</button></div></footer>
+          </form>
+        </div>
+        </div>, document.body
       )}
 
       {/* ========================================================== */}
       {/* 4. FLOATING RIGHT-SIDE ANIMATION TOAST                     */}
       {/* ========================================================== */}
       {mounted && toast && createPortal(
-        <div className="fixed top-6 right-6 z-[100000] max-w-sm w-full animate-slide-in-right pointer-events-auto">
+        <div className="admin-communications fixed top-6 right-6 z-[100000] max-w-sm w-full animate-slide-in-right pointer-events-auto">
           <div className="bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-2xl p-4 flex items-start gap-3.5 shadow-2xl backdrop-blur-md">
             <div className="h-9 w-9 rounded-xl bg-[#237227] text-white flex items-center justify-center shrink-0">
               <CheckCircle className="h-4 w-4" />
