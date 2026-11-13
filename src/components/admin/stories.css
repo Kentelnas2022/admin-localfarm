@@ -1,0 +1,29 @@
+/* Field Stories follows the marketplace card and control system. */
+.stories-directory.members-directory .story-card { padding:8px 8px 0; border-radius:20px; background:var(--market-surface); border-color:var(--market-line); box-shadow:0 4px 16px #233e2905; }
+.stories-directory.members-directory .story-card:hover { border-color:#b9c9ba; box-shadow:0 12px 30px #233e2910; }
+.stories-directory .story-image-frame { aspect-ratio:1.5; border-radius:13px; flex-shrink:0; }
+.stories-directory .story-image-frame>img { height:100%; width:100%; object-fit:cover; }
+.stories-directory .story-image-frame>.bg-gradient-to-t { opacity:.35; }
+.stories-directory .story-card-content { padding:19px 12px 16px; color:var(--market-ink); flex:1; }
+.stories-directory .story-card-content>div:first-child { min-height:36px; margin-bottom:16px; }
+.stories-directory .story-card-content .w-6 { width:34px; height:34px; border-color:var(--market-line); }
+.stories-directory .story-card-content .text-slate-300 { color:var(--market-muted); margin-top:4px; }
+.stories-directory .story-card-content>p { color:var(--market-ink); font-size:12px; line-height:1.85; min-height:44px; overflow-wrap:anywhere; filter:none; }
+.stories-directory .story-card-content .bg-white\/20 { background:var(--market-soft); }
+.stories-directory .story-card-content .bg-emerald-400 { background:#91ae98; }
+.stories-directory .story-card-content .text-emerald-400 { color:var(--market-accent); }
+.stories-directory .story-card-footer { background:var(--market-surface); border-color:var(--market-line); padding:13px 12px 14px; }
+.stories-directory .story-card-footer span,.stories-directory .story-card-footer svg { color:var(--market-muted); font-size:10px; font-weight:400; }
+.stories-directory .story-card-footer button { min-width:32px; min-height:32px; border-color:var(--market-line); }
+.stories-directory .story-card-footer button[title="Remove 24h Story"] { border-color:transparent; }
+.stories-directory .story-card-footer button[title="Remove 24h Story"] svg { color:#9b7068; }
+.stories-directory .story-card-footer .fill-rose-500\/20 { fill:none; }
+.stories-directory .story-card-footer .fill-amber-500 { color:#a8894f; fill:#e8d8b7; }
+.stories-directory .story-image-frame:focus-visible { outline:2px solid var(--market-accent); outline-offset:3px; }
+@media(prefers-reduced-motion:no-preference) {
+  .stories-directory .story-image-frame>img { transition:transform .6s cubic-bezier(.22,1,.36,1); }
+  .stories-directory .story-card:hover .story-image-frame>img { transform:scale(1.035); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .stories-directory.members-directory .story-card { transform:none!important; }
+}

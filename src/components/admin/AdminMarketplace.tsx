@@ -38,6 +38,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { AdminReservationView } from './AdminReservationView';
+import './marketplace.css';
+import { MarketplaceDropdown } from './MarketplaceDropdown';
 
 export interface SrpCheckInfo {
   status: 'overpriced' | 'compliant' | 'bargain';
@@ -109,6 +111,16 @@ export interface ReservationItem {
   seller_avatar?: string;
   farm_name?: string;
   farmer_code?: string;
+}
+
+function ListingImage({ src, name }: { src: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  return src && !failed ? (
+    <img src={src} alt={'Marketplace listing by ' + name} loading="lazy" onError={() => setFailed(true)} className="market-photo" />
+  ) : (
+    <div className="market-photo-placeholder"><Leaf size={32} strokeWidth={1.2}/><span>{src ? 'Photo unavailable' : 'From the community'}</span><small>{src ? 'Listing details are available below' : 'A little update from the farm'}</small></div>
+  );
 }
 
 export function AdminMarketplace() {
@@ -259,6 +271,24 @@ export function AdminMarketplace() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [selectedPost, deleteConfirmPost]);
+
+  useEffect(() => {
+    if (!selectedPost && !deleteConfirmPost) return;
+    const trigger = document.activeElement as HTMLElement | null;
+    const dialog = document.querySelector<HTMLElement>('.market-dialog');
+    dialog?.focus();
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !dialog) return;
+      const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, textarea, [tabindex="0"]'));
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', trapFocus);
+    return () => { document.removeEventListener('keydown', trapFocus); if (trigger?.isConnected) trigger.focus(); };
+  }, [Boolean(selectedPost), Boolean(deleteConfirmPost)]);
 
   function showToast(title: string, message: string, type: 'success' | 'error' = 'success') {
     setToast({ title, message, type });
@@ -489,38 +519,10 @@ export function AdminMarketplace() {
 
           <div className="members-controls flex items-center gap-2.5 w-full md:w-auto flex-wrap sm:flex-nowrap">
             {/* Section / View Mode Dropdown */}
-            <div className="relative inline-flex items-center">
-              <select
-                value={activeMarketTab}
-                onChange={(e) => setActiveMarketTab(e.target.value as 'posts' | 'reservations')}
-                aria-label="Select marketplace manager section"
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-[#237227]/30 dark:border-[#237227]/50 hover:border-[#237227] dark:hover:border-emerald-500 text-[#237227] dark:text-emerald-400 font-bold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227]/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="posts" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                  Produce Feed & Listings ({stats.totalPosts})
-                </option>
-                <option value="reservations" className="dark:bg-[#1a1e1b] text-slate-800 dark:text-slate-200 font-semibold">
-                  Pre-Harvest Reservations ({resKpis.totalReservations || 3})
-                </option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#237227] dark:text-emerald-400 pointer-events-none" />
-            </div>
+            <MarketplaceDropdown label="Select marketplace manager section" value={activeMarketTab} onChange={(value) => setActiveMarketTab(value as 'posts' | 'reservations')} options={[{ value: 'posts', label: 'Produce Feed & Listings (' + stats.totalPosts + ')' }, { value: 'reservations', label: 'Pre-Harvest Reservations' }]} />
 
             {/* Category Dropdown (Uniform) */}
-            <div className="relative inline-flex items-center">
-              <select
-                aria-label="Filter by listing category" value={categoryFilter}
-                onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="all" className="dark:bg-[#1a1e1b]">All Categories</option>
-                <option value="Field" className="dark:bg-[#1a1e1b]">Field Harvest</option>
-                <option value="Wholesaler" className="dark:bg-[#1a1e1b]">Wholesale Contract</option>
-                <option value="Temporary" className="dark:bg-[#1a1e1b]">Flash Produce</option>
-                <option value="General" className="dark:bg-[#1a1e1b]">Farming Tips</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
-            </div>
+            <MarketplaceDropdown label="Filter by listing category" value={categoryFilter} onChange={(value) => { setCategoryFilter(value); setCurrentPage(1); }} options={[{ value: 'all', label: 'All Categories' }, { value: 'Field', label: 'Field Harvest' }, { value: 'Wholesaler', label: 'Wholesale Contract' }, { value: 'Temporary', label: 'Flash Produce' }, { value: 'General', label: 'Farming Tips' }]} />
 
             {/* SRP Compliance Filter Pill */}
             <button
@@ -538,20 +540,7 @@ export function AdminMarketplace() {
             </button>
 
             {/* Sort by dropdown */}
-            <div className="relative inline-flex items-center">
-              <select
-                aria-label="Sort listings" value={sortBy}
-                onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="newest" className="dark:bg-[#1a1e1b]">Newest First</option>
-                <option value="popular" className="dark:bg-[#1a1e1b]">Most Likes</option>
-                <option value="comments" className="dark:bg-[#1a1e1b]">Most Comments</option>
-                <option value="shares" className="dark:bg-[#1a1e1b]">Most Shares</option>
-                <option value="oldest" className="dark:bg-[#1a1e1b]">Oldest First</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
-            </div>
+            <MarketplaceDropdown label="Sort listings" value={sortBy} onChange={(value) => { setSortBy(value); setCurrentPage(1); }} options={[{ value: 'newest', label: 'Newest First' }, { value: 'popular', label: 'Most Likes' }, { value: 'comments', label: 'Most Comments' }, { value: 'shares', label: 'Most Shares' }, { value: 'oldest', label: 'Oldest First' }]} />
 
             {/* Export PDF */}
             <a
@@ -586,29 +575,21 @@ export function AdminMarketplace() {
         <div key={JSON.stringify([searchQuery,categoryFilter,srpFilter,sortBy,currentPage,pageSize])} className="market-listings grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {posts
             .filter(p => srpFilter === 'all' ? true : p.srp_check?.status === srpFilter)
-            .map((post) => (
+            .map((post, index) => (
             <div
               key={post.id}
+              style={{ animationDelay: Math.min(index, 7) * 45 + "ms" }}
               className="market-listing bg-white dark:bg-[#242526] rounded-2xl border border-slate-200/80 dark:border-[#393a3b] shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-[#4e4f50] transition-all duration-200 overflow-hidden flex flex-col"
             >
               {/* Image Preview with Category Badge */}
-              <div 
+              <button
+                type="button"
+                aria-label={'View listing by ' + post.full_name}
                 onClick={() => setSelectedPost(post)}
-                className="relative aspect-video sm:aspect-4/3 bg-slate-100 dark:bg-[#18191a] overflow-hidden cursor-pointer group"
+                className="market-image-button relative overflow-hidden cursor-pointer group"
               >
-                {post.image_url ? (
-                  <img
-                    src={post.image_url}
-                    alt=""
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-[#555]">
-                    <ShoppingBag className="h-10 w-10" />
-                    <span className="text-[11px] mt-1 font-semibold">Text-Only Update</span>
-                  </div>
-                )}
-                
+                <ListingImage src={post.image_url} name={post.full_name} />
+
                 {/* Overlay Top Badges */}
                 <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
                   <CategoryBadge category={post.category} />
@@ -639,7 +620,7 @@ export function AdminMarketplace() {
                     <Eye className="h-3.5 w-3.5" /> Inspect Listing
                   </span>
                 </div>
-              </div>
+              </button>
 
               {/* Content Body */}
               <div className="market-listing-body p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
@@ -666,7 +647,7 @@ export function AdminMarketplace() {
                     </div>
                     <div className="text-[11px] text-slate-400 dark:text-[#8a8d91] truncate flex items-center gap-1">
                       <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{post.location}</span>
+                      <span className="truncate">{post.location || 'Location not provided'}</span>
                     </div>
                   </div>
                 </div>
@@ -706,7 +687,7 @@ export function AdminMarketplace() {
                       className="p-1.5 rounded-lg border border-slate-200 dark:border-[#393a3b] hover:bg-slate-50 dark:hover:bg-[#3a3b3c] text-slate-600 dark:text-[#b0b3b8] transition-all cursor-pointer"
                       title="View details"
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <Eye className="h-3.5 w-3.5" /><span>View</span>
                     </button>
                     <button
                       type="button"
@@ -748,13 +729,15 @@ export function AdminMarketplace() {
       {mounted && selectedPost && createPortal(
         <div 
           onClick={() => setSelectedPost(null)} 
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm overflow-y-auto animate-fade-in"
+          className="market-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
         >
           <div 
             onClick={(e) => e.stopPropagation()} 
-            className="bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
+            role="dialog" aria-modal="true" aria-label="Listing details" tabIndex={-1}
+            className="market-dialog bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
           >
 
+            <div className="market-dialog-label"><Leaf size={14}/><span>MARKETPLACE / LISTING {selectedPost.id}</span></div>
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#393a3b]">
               <div className="flex items-center gap-3">
@@ -780,6 +763,7 @@ export function AdminMarketplace() {
               <button
                 type="button"
                 onClick={() => setSelectedPost(null)}
+                aria-label="Close listing details"
                 className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-[#3a3b3c] transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -788,8 +772,8 @@ export function AdminMarketplace() {
 
             {/* Produce Photo if present */}
             {selectedPost.image_url && (
-              <div className="rounded-2xl overflow-hidden aspect-video bg-black/5 border border-slate-200/80 dark:border-[#393a3b]">
-                <img src={selectedPost.image_url} alt="" className="w-full h-full object-cover" />
+              <div className="market-dialog-image rounded-2xl overflow-hidden aspect-video bg-black/5 border border-slate-200/80 dark:border-[#393a3b]">
+                <ListingImage src={selectedPost.image_url} name={selectedPost.full_name} />
               </div>
             )}
 
@@ -799,7 +783,7 @@ export function AdminMarketplace() {
                 <CategoryBadge category={selectedPost.category} />
                 <span className="text-xs text-slate-400 flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
-                  <span>{selectedPost.location}</span>
+                  <span>{selectedPost.location || 'Location not provided'}</span>
                 </span>
               </div>
 
@@ -844,7 +828,7 @@ export function AdminMarketplace() {
               )}
 
               {/* Engagement Stats */}
-              <div className="flex items-center justify-around py-3 rounded-2xl bg-slate-50/60 dark:bg-[#18191a] border border-slate-200/60 dark:border-[#393a3b] text-xs font-semibold">
+              <div className="market-engagement flex items-center justify-around py-3 rounded-2xl bg-slate-50/60 dark:bg-[#18191a] border border-slate-200/60 dark:border-[#393a3b] text-xs font-semibold">
                 <span className="flex items-center gap-1.5 text-rose-500">
                   <Heart className="h-4 w-4" /> {selectedPost.likes_count} Likes
                 </span>
@@ -929,11 +913,12 @@ export function AdminMarketplace() {
       {mounted && deleteConfirmPost && createPortal(
         <div 
           onClick={() => setDeleteConfirmPost(null)} 
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-sm overflow-y-auto animate-fade-in"
+          className="market-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
         >
           <div 
             onClick={(e) => e.stopPropagation()} 
-            className="bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
+            role="alertdialog" aria-modal="true" aria-label="Delete marketplace listing" tabIndex={-1}
+            className="market-dialog market-delete-dialog bg-white dark:bg-[#242526] border border-slate-200 dark:border-[#393a3b] rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-[#393a3b]">
               <div className="h-10 w-10 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center shrink-0">

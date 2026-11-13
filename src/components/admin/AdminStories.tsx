@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { MarketplaceDropdown } from './MarketplaceDropdown';
+import './marketplace.css';
+import './stories.css';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { 
   Radio, 
   Eye, 
@@ -336,6 +339,8 @@ export function AdminStories() {
     }
   }
 
+  const reducedMotion = useReducedMotion();
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -363,7 +368,7 @@ export function AdminStories() {
   };
 
   return (
-    <div className="stories-directory members-directory space-y-6">
+    <div className="stories-directory marketplace-directory members-directory space-y-6">
 
       {/* Toast Alert */}
       {mounted && toast && createPortal(
@@ -468,58 +473,13 @@ export function AdminStories() {
           <div className="members-controls flex items-center gap-2.5 w-full md:w-auto flex-wrap sm:flex-nowrap">
             
             {/* Status Filter */}
-            <div className="relative inline-flex items-center">
-              <select
-                aria-label="Filter by story broadcast status"
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value as any);
-                  setCurrentPage(1);
-                }}
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="all" className="dark:bg-[#1a1e1b]">All Stories ({stats.totalStories})</option>
-                <option value="active" className="dark:bg-[#1a1e1b]">Live Stories ({stats.activeStories})</option>
-                <option value="featured" className="dark:bg-[#1a1e1b]">Spotlight Featured ({stats.featuredCount})</option>
-                <option value="expired" className="dark:bg-[#1a1e1b]">Archived Stories</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
-            </div>
+            <MarketplaceDropdown label="Filter by story broadcast status" value={statusFilter} onChange={(value) => { setStatusFilter(value as typeof statusFilter); setCurrentPage(1); }} options={[{value:'all',label:'All Stories (' + stats.totalStories + ')'}, {value:'active',label:'Live Stories (' + stats.activeStories + ')'}, {value:'featured',label:'Spotlight Featured (' + stats.featuredCount + ')'}, {value:'expired',label:'Archived Stories'}]} />
 
             {/* Media Type Filter */}
-            <div className="relative inline-flex items-center">
-              <select
-                aria-label="Filter by story media format"
-                value={mediaTypeFilter}
-                onChange={(e) => {
-                  setMediaTypeFilter(e.target.value as any);
-                  setCurrentPage(1);
-                }}
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="all" className="dark:bg-[#1a1e1b]">All Formats</option>
-                <option value="image" className="dark:bg-[#1a1e1b]">Photos & Snapshots</option>
-                <option value="video" className="dark:bg-[#1a1e1b]">Video Clips</option>
-                <option value="text" className="dark:bg-[#1a1e1b]">Text Bulletins</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
-            </div>
+            <MarketplaceDropdown label="Filter by story media format" value={mediaTypeFilter} onChange={(value) => { setMediaTypeFilter(value as typeof mediaTypeFilter); setCurrentPage(1); }} options={[{value:'all',label:'All Formats'}, {value:'image',label:'Photos & Snapshots'}, {value:'video',label:'Video Clips'}, {value:'text',label:'Text Bulletins'}]} />
 
             {/* Sort Dropdown */}
-            <div className="relative inline-flex items-center">
-              <select
-                aria-label="Sort field stories"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="appearance-none bg-white dark:bg-[#1a1e1b] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-xl pl-3.5 pr-8 py-2 outline-none focus:border-farm-600 focus:ring-1 focus:ring-farm-600/20 shadow-2xs transition-all cursor-pointer"
-              >
-                <option value="latest" className="dark:bg-[#1a1e1b]">Latest Broadcast</option>
-                <option value="views" className="dark:bg-[#1a1e1b]">Most Viewed</option>
-                <option value="reactions" className="dark:bg-[#1a1e1b]">Most Reactions</option>
-                <option value="expiring" className="dark:bg-[#1a1e1b]">Expiring Soonest</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
-            </div>
+            <MarketplaceDropdown label="Sort field stories" value={sortBy} onChange={(value) => { setSortBy(value as typeof sortBy); setCurrentPage(1); }} options={[{value:'latest',label:'Latest Broadcast'}, {value:'views',label:'Most Viewed'}, {value:'reactions',label:'Most Reactions'}, {value:'expiring',label:'Expiring Soonest'}]} />
 
             {/* View Mode Toggle */}
             <div className="segmented-control inline-flex bg-slate-100 dark:bg-[#131614] p-1 rounded-xl border border-slate-200/90 dark:border-slate-800">
@@ -616,9 +576,9 @@ export function AdminStories() {
         /* =========== 3A. CINEMATIC GRID VIEW =========== */
         <motion.div 
           variants={containerVariants}
-          initial="hidden"
+          initial={reducedMotion ? false : "hidden"}
           animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-5"
+          className="market-listings stories-grid grid gap-5"
         >
           {paginatedStories.map((story) => {
             const isActive = story.minutes_remaining > 0;
@@ -629,13 +589,15 @@ export function AdminStories() {
               <motion.div
                 key={story.id}
                 variants={cardVariants}
-                layout
+                layout={!reducedMotion}
                 className="story-card bg-white dark:bg-[#232b25] rounded-[20px] border border-slate-200/90 dark:border-slate-800/90 shadow-2xs hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col group relative"
               >
                 {/* Visual Snapshot Frame */}
                 <div 
                   onClick={() => setSelectedStory(story)}
-                  className="relative aspect-9/14 bg-slate-900 overflow-hidden cursor-pointer select-none"
+                  role="button" tabIndex={0} aria-label={"Preview story by " + story.full_name}
+                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedStory(story); } }}
+                  className="story-image-frame relative aspect-9/14 bg-slate-900 overflow-hidden cursor-pointer select-none"
                 >
                   {story.media_url ? (
                     <img
@@ -721,8 +683,9 @@ export function AdminStories() {
                     </div>
                   </div>
 
+                </div>
                   {/* Bottom Author & Caption Card */}
-                  <div className="absolute bottom-3 left-3 right-3 text-white space-y-1.5 z-10">
+                  <div className="story-card-content text-white space-y-1.5">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-white/20 overflow-hidden shrink-0 border border-white/40 shadow-xs">
                         {story.avatar_url ? (
@@ -763,10 +726,9 @@ export function AdminStories() {
                       </div>
                     )}
                   </div>
-                </div>
 
                 {/* Footer Controls & Stats Bar (Uniform with Admin Directory) */}
-                <div className="p-3 bg-white dark:bg-[#232b25] border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                <div className="story-card-footer p-3 bg-white dark:bg-[#232b25] border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
                   
                   {/* Left: Engagement counts */}
                   <div className="flex items-center gap-3 font-semibold">
@@ -1074,7 +1036,7 @@ export function AdminStories() {
         <AnimatePresence>
           <div 
             onClick={() => setSelectedStory(null)}
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
+            className="market-modal-overlay story-preview-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
           >
             {/* Prev Story Arrow */}
             <button
@@ -1100,9 +1062,9 @@ export function AdminStories() {
 
             {/* Phone Frame Modal Content */}
             <motion.div 
-              initial={{ scale: 0.94, opacity: 0, y: 15 }}
+              initial={reducedMotion ? false : { scale: 0.98, opacity: 0, y: 12 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 15 }}
+              exit={reducedMotion ? undefined : { scale: 0.98, opacity: 0, y: 12 }}
               transition={{ type: 'spring', damping: 25, stiffness: 320 }}
               onClick={(e) => e.stopPropagation()}
               className="relative bg-black rounded-[28px] border border-white/20 max-w-sm w-full overflow-hidden shadow-2xl my-auto flex flex-col"
@@ -1235,11 +1197,11 @@ export function AdminStories() {
       {mounted && storyToDelete && createPortal(
         <div 
           onClick={() => !isDeleting && setStoryToDelete(null)}
-          className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          className="market-modal-overlay fixed inset-0 z-[100000] flex items-center justify-center p-4"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#232b25] border border-slate-200 dark:border-slate-700/80 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            className="market-dialog market-delete-dialog bg-white dark:bg-[#232b25] border border-slate-200 dark:border-slate-700/80 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4"
           >
             <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
               <div className="h-10 w-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center shrink-0 border border-rose-200 dark:border-rose-900/60">
