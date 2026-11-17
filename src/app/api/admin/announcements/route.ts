@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionAdmin } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAdminActivity } from '@/lib/activity-logger';
 
 export interface AnnouncementItem {
@@ -25,55 +25,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Ensure the table exists in MySQL dynamically
-    try {
-      await query(`
-        CREATE TABLE IF NOT EXISTS \`announcements\` (
-          \`id\` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-          \`slug\` VARCHAR(64) UNIQUE NULL,
-          \`title\` VARCHAR(255) NOT NULL,
-          \`content\` TEXT NOT NULL,
-          \`category\` ENUM('Scam Alert', 'New Feature', 'Platform Maintenance', 'Community Guidelines', 'General Notice') NOT NULL DEFAULT 'General Notice',
-          \`priority\` ENUM('Urgent', 'High', 'Normal') NOT NULL DEFAULT 'Normal',
-          \`target_audience\` VARCHAR(100) NOT NULL DEFAULT 'All Farmers & Buyers',
-          \`is_pinned\` TINYINT(1) NOT NULL DEFAULT 0,
-          \`is_archived\` TINYINT(1) NOT NULL DEFAULT 0,
-          \`reach_count\` INT UNSIGNED NOT NULL DEFAULT 0,
-          \`read_count\` INT UNSIGNED NOT NULL DEFAULT 0,
-          \`author\` VARCHAR(100) DEFAULT 'System Admin',
-          \`author_id\` INT UNSIGNED NULL,
-          \`created_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          \`updated_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          INDEX \`idx_announcements_pinned_created\` (\`is_pinned\`, \`created_at\` DESC),
-          INDEX \`idx_announcements_category\` (\`category\`),
-          INDEX \`idx_announcements_archived\` (\`is_archived\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-      `);
-    } catch {
-      // Table check
-    }
+    const { data: rows, error } = await supabaseAdmin
+      .from('announcements')
+      .select('*')
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false });
 
-    // Fetch announcements strictly from MySQL
-    const rows = await query<any[]>(
-      `SELECT 
-        COALESCE(slug, CAST(id AS CHAR)) as id,
-        title, 
-        content, 
-        category, 
-        priority, 
-        target_audience, 
-        is_pinned, 
-        is_archived,
-        reach_count, 
-        read_count, 
-        created_at, 
-        author 
-      FROM announcements 
-      ORDER BY is_pinned DESC, created_at DESC`
-    );
+    if (error) throw error;
 
-    const items: AnnouncementItem[] = (rows || []).map(r => ({
-      id: String(r.id),
+    const items: AnnouncementItem[] = (rows || []).map((r: any) => ({
+      id: String(r.slug || r.id),
       title: r.title,
       content: r.content,
       category: r.category,
@@ -87,7 +48,6 @@ export async function GET() {
       author: r.author || 'Admin',
     }));
 
-    // Compute live broadcast analytics purely from MySQL data
     const totalAnnouncements = items.length;
     const totalReach = items.reduce((acc, a) => acc + (a.reach_count || 0), 0);
     const totalReads = items.reduce((acc, a) => acc + (a.read_count || 0), 0);
@@ -95,7 +55,6 @@ export async function GET() {
     const scamAlertsCount = items.filter(a => a.category === 'Scam Alert' && !a.is_archived).length;
     const avgReadRate = totalReach > 0 ? Math.round((totalReads / totalReach) * 100) : 0;
 
-    // Category breakdown
     const categoryStats: Record<string, number> = {};
     items.forEach(a => {
       categoryStats[a.category] = (categoryStats[a.category] || 0) + 1;
@@ -132,16 +91,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
     }
 
-    // Query active farmers count from MySQL users table
     let farmerCount = 4820;
     try {
-      const rows = await query<any[]>('SELECT COUNT(*) as count FROM users WHERE role != "admin"');
-      if (rows && rows[0] && rows[0].count > 0) {
-        farmerCount = Math.max(farmerCount, Number(rows[0].count));
+      const { count } = await supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .neq('role', 'admin');
+      if (count && count > 0) {
+        farmerCount = Math.max(farmerCount, count);
       }
-    } catch {
-      // Fallback to default
-    }
+    } catch {}
 
     const newSlug = `ann-${Date.now()}`;
     const newAnnouncement: AnnouncementItem = {
@@ -154,47 +113,27 @@ export async function POST(req: NextRequest) {
       is_pinned: Boolean(is_pinned),
       is_archived: false,
       reach_count: farmerCount,
-      read_count: Math.round(farmerCount * 0.15), // initial notification delivery
+      read_count: Math.round(farmerCount * 0.15),
       created_at: new Date().toISOString(),
       author: admin.email || 'Admin',
     };
 
-    // 1. Insert into MySQL announcements table
-    try {
-      await query(
-        `INSERT INTO announcements 
-          (slug, title, content, category, priority, target_audience, is_pinned, reach_count, read_count, author, author_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          newSlug,
-          newAnnouncement.title,
-          newAnnouncement.content,
-          newAnnouncement.category,
-          newAnnouncement.priority,
-          newAnnouncement.target_audience,
-          newAnnouncement.is_pinned ? 1 : 0,
-          newAnnouncement.reach_count,
-          newAnnouncement.read_count,
-          newAnnouncement.author,
-          admin.id || null,
-        ]
-      );
-    } catch (dbErr) {
-      console.error('MySQL insert error:', dbErr);
-      return NextResponse.json({ error: 'Failed to insert announcement into database' }, { status: 500 });
-    }
+    const { error: insErr } = await supabaseAdmin
+      .from('announcements')
+      .insert({
+        slug: newSlug,
+        title: newAnnouncement.title,
+        content: newAnnouncement.content,
+        category: newAnnouncement.category,
+        priority: newAnnouncement.priority,
+        target_audience: newAnnouncement.target_audience,
+        is_pinned: newAnnouncement.is_pinned,
+        reach_count: newAnnouncement.reach_count,
+        read_count: newAnnouncement.read_count,
+        author: newAnnouncement.author,
+      });
 
-    // 2. Insert broadcast notification into MySQL notifications table for all non-admin users
-    try {
-      await query(
-        `INSERT INTO notifications (user_id, actor_id, type, title, content, entity_name)
-         SELECT id, ?, 'announcement', ?, ?, 'broadcast'
-         FROM users WHERE role != 'admin'`,
-        [admin.id, newAnnouncement.title, newAnnouncement.content.slice(0, 255)]
-      );
-    } catch {
-      // Ignore if notifications table differs
-    }
+    if (insErr) throw insErr;
 
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
     await logAdminActivity({
@@ -229,8 +168,15 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Announcement ID is required' }, { status: 400 });
     }
 
-    // Delete directly from MySQL table
-    await query('DELETE FROM announcements WHERE slug = ? OR CAST(id AS CHAR) = ?', [id, id]);
+    const isNumeric = /^\d+$/.test(id);
+    let delQuery = supabaseAdmin.from('announcements').delete();
+    if (isNumeric) {
+      delQuery = delQuery.or(`id.eq.${id},slug.eq.${id}`);
+    } else {
+      delQuery = delQuery.eq('slug', id);
+    }
+    const { error } = await delQuery;
+    if (error) throw error;
 
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
     await logAdminActivity({
@@ -256,97 +202,37 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, title, content, category, priority, target_audience, is_pinned, is_archived, rebroadcast } = body;
+    const { id, title, content, category, priority, target_audience, is_pinned, is_archived } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Announcement ID is required' }, { status: 400 });
     }
 
-    // Handle re-broadcasting an existing announcement to the mobile notifications table
-    if (rebroadcast) {
-      const existingRows = await query<any[]>(
-        'SELECT title, content, category FROM announcements WHERE slug = ? OR CAST(id AS CHAR) = ? LIMIT 1',
-        [id, id]
-      );
-      if (!existingRows || existingRows.length === 0) {
-        return NextResponse.json({ error: 'Announcement not found' }, { status: 404 });
-      }
-      const ann = existingRows[0];
-      await query(
-        `INSERT INTO notifications (user_id, actor_id, type, title, content, entity_name, is_read)
-         SELECT id, ?, 'announcement', ?, ?, 'broadcast', 0
-         FROM users WHERE role != 'admin'`,
-        [admin.id, ann.title, String(ann.content || '').slice(0, 255)]
-      );
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+    if (typeof title === 'string' && title.trim()) updates.title = title.trim();
+    if (typeof content === 'string' && content.trim()) updates.content = content.trim();
+    if (typeof category === 'string' && category.trim()) updates.category = category.trim();
+    if (typeof priority === 'string' && priority.trim()) updates.priority = priority.trim();
+    if (typeof target_audience === 'string' && target_audience.trim()) updates.target_audience = target_audience.trim();
+    if (typeof is_pinned === 'boolean') updates.is_pinned = is_pinned;
+    if (typeof is_archived === 'boolean') updates.is_archived = is_archived;
 
-      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
-      await logAdminActivity({
-        action: 'Announcement Push Re-Broadcasted',
-        detail: `Re-sent push notification for announcement "${ann.title}" to all mobile users`,
-        type: 'announcements',
-        user: admin.email || 'admin@localfarm.com',
-        ip: clientIp,
-        status: 'success'
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: `Push notification for "${ann.title}" re-broadcasted to all mobile users!`
-      });
+    const isNumeric = /^\d+$/.test(id);
+    let patchQuery = supabaseAdmin.from('announcements').update(updates);
+    if (isNumeric) {
+      patchQuery = patchQuery.or(`id.eq.${id},slug.eq.${id}`);
+    } else {
+      patchQuery = patchQuery.eq('slug', id);
     }
-
-    const updates: string[] = [];
-    const params: any[] = [];
-    const changes: string[] = [];
-
-    if (typeof title === 'string' && title.trim()) {
-      updates.push('title = ?');
-      params.push(title.trim());
-      changes.push('title updated');
-    }
-    if (typeof content === 'string' && content.trim()) {
-      updates.push('content = ?');
-      params.push(content.trim());
-      changes.push('content updated');
-    }
-    if (typeof category === 'string' && category.trim()) {
-      updates.push('category = ?');
-      params.push(category.trim());
-      changes.push(`category set to ${category.trim()}`);
-    }
-    if (typeof priority === 'string' && priority.trim()) {
-      updates.push('priority = ?');
-      params.push(priority.trim());
-    }
-    if (typeof target_audience === 'string' && target_audience.trim()) {
-      updates.push('target_audience = ?');
-      params.push(target_audience.trim());
-    }
-    if (typeof is_pinned === 'boolean') {
-      updates.push('is_pinned = ?');
-      params.push(is_pinned ? 1 : 0);
-      changes.push(is_pinned ? 'pinned to top banner' : 'unpinned');
-    }
-    if (typeof is_archived === 'boolean') {
-      updates.push('is_archived = ?');
-      params.push(is_archived ? 1 : 0);
-      changes.push(is_archived ? 'archived' : 'restored from archive');
-    }
-
-    if (updates.length === 0) {
-      return NextResponse.json({ error: 'No update fields provided' }, { status: 400 });
-    }
-
-    params.push(id, id);
-    await query(
-      `UPDATE announcements SET ${updates.join(', ')} WHERE slug = ? OR CAST(id AS CHAR) = ?`,
-      params
-    );
+    const { error } = await patchQuery;
+    if (error) throw error;
 
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
     await logAdminActivity({
       action: 'Announcement Updated',
-      detail: `Announcement "${id}" was ${changes.join(', ') || 'modified'}`,
+      detail: `Announcement "${id}" was modified`,
       type: 'announcements',
       user: admin.email || 'admin@localfarm.com',
       ip: clientIp,

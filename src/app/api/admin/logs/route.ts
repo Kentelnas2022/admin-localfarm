@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionAdmin } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAdminActivity } from '@/lib/activity-logger';
 
 export async function GET(request: NextRequest) {
@@ -13,46 +13,32 @@ export async function GET(request: NextRequest) {
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '10', 10)));
     const offset = (page - 1) * limit;
 
-    const whereClauses: string[] = ['1=1'];
-    const queryParams: any[] = [];
+    let query = supabaseAdmin
+      .from('admin_activity_logs')
+      .select('*', { count: 'exact' });
 
     if (type !== 'all') {
-      whereClauses.push('type = ?');
-      queryParams.push(type);
+      query = query.eq('type', type);
     }
-
     if (status !== 'all') {
-      whereClauses.push('status = ?');
-      queryParams.push(status);
+      query = query.eq('status', status);
     }
-
     if (search.trim()) {
-      whereClauses.push('(action LIKE ? OR detail LIKE ? OR user LIKE ? OR ip LIKE ?)');
-      const s = `%${search.trim()}%`;
-      queryParams.push(s, s, s, s);
+      const s = search.trim();
+      query = query.or(`action.ilike.%${s}%,detail.ilike.%${s}%,user_email.ilike.%${s}%,ip.ilike.%${s}%`);
     }
 
-    const whereSql = whereClauses.join(' AND ');
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    // Total count
-    const [countRes] = await query<any[]>(
-      `SELECT COUNT(*) as count FROM \`admin_activity_logs\` WHERE ${whereSql}`,
-      queryParams
-    );
-    const totalCount = countRes?.count || 0;
+    const { data: logRows, count, error } = await query;
+    if (error) throw error;
+
+    const totalCount = count || 0;
     const totalPages = Math.ceil(totalCount / limit) || 1;
 
-    // Fetch page rows
-    const logRows = await query<any[]>(
-      `SELECT id, action, detail, type, user, ip, status, created_at 
-        FROM \`admin_activity_logs\` 
-        WHERE ${whereSql} 
-        ORDER BY created_at DESC 
-        LIMIT ${limit} OFFSET ${offset}`,
-      queryParams
-    );
-
-    const logs = logRows.map(log => {
+    const logs = (logRows || []).map((log: any) => {
       const d = new Date(log.created_at);
       const now = new Date();
       const isToday = d.toDateString() === now.toDateString();
@@ -68,7 +54,7 @@ export async function GET(request: NextRequest) {
         action: log.action,
         detail: log.detail,
         type: log.type,
-        user: log.user,
+        user: log.user_email || log.user || 'admin@localfarm.com',
         ip: log.ip,
         status: log.status,
         timestamp,
@@ -128,7 +114,12 @@ export async function DELETE(request: NextRequest) {
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
 
     if (action === 'clear_all') {
-      await query(`TRUNCATE TABLE \`admin_activity_logs\``);
+      const { error } = await supabaseAdmin
+        .from('admin_activity_logs')
+        .delete()
+        .neq('id', 0);
+      if (error) throw error;
+
       await logAdminActivity({
         action: 'Activity Logs Truncated',
         detail: 'All system audit log history was cleared by administrator',
@@ -144,7 +135,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Log ID is required' }, { status: 400 });
     }
 
-    await query(`DELETE FROM \`admin_activity_logs\` WHERE id = ?`, [id]);
+    const { error } = await supabaseAdmin
+      .from('admin_activity_logs')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
 
     return NextResponse.json({ success: true, message: `Log #${id} deleted successfully.` });
   } catch (error: any) {

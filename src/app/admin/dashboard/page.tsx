@@ -3,11 +3,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UserSearch } from '@/components/admin/UserSearch';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminDashboardOverview } from '@/components/admin/AdminDashboardOverview';
 import { 
   Check,
-  Search, 
   Trash2, 
   CheckCircle, 
   Edit3, 
@@ -47,9 +47,37 @@ import { AdminEmergencyDispatcher } from '@/components/admin/AdminEmergencyDispa
 import { useTheme } from '@/context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
 
+const ADMIN_SECTIONS = new Set(['dashboard', 'users', 'verification', 'marketplace', 'prices', 'stories', 'announcements', 'reports', 'emergency', 'settings']);
+
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTabState] = useState('dashboard');
+  const setActiveTab = useCallback((tab: string) => {
+    const section = ADMIN_SECTIONS.has(tab) ? tab : 'dashboard';
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('section') !== section) {
+      url.searchParams.set('section', section);
+      window.history.pushState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+    setActiveTabState(section);
+  }, []);
+
+  // Keep sidebar navigation in the URL so refresh and browser history restore it.
+  useEffect(() => {
+    const restoreSection = () => {
+      const url = new URL(window.location.href);
+      const requested = url.searchParams.get('section') || 'dashboard';
+      const section = ADMIN_SECTIONS.has(requested) ? requested : 'dashboard';
+      if (section !== requested) {
+        url.searchParams.set('section', section);
+        window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+      setActiveTabState(section);
+    };
+    restoreSection();
+    window.addEventListener('popstate', restoreSection);
+    return () => window.removeEventListener('popstate', restoreSection);
+  }, []);
   const [adminUser, setAdminUser] = useState<any>(null);
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
@@ -350,7 +378,10 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!adminUser) return;
     if (!allowedTabs.includes(activeTab)) {
-      setActiveTab('dashboard');
+      const url = new URL(window.location.href);
+      url.searchParams.set('section', 'dashboard');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+      setActiveTabState('dashboard');
     }
   }, [adminUser, activeTab, allowedTabs]);
 
@@ -996,42 +1027,15 @@ export default function AdminDashboardPage() {
 
                   {/* Right Side Tools: Search, Export, + Add User */}
                   <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-                    {/* Search */}
-                    <div className="relative min-w-[190px] sm:w-56">
-                      <div className="group relative flex items-center">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-slate-600 dark:group-focus-within:text-zinc-300 transition-colors pointer-events-none duration-200" />
-                        <input
-                          type="text"
-                          value={searchUser}
-                          onChange={(e) => {
-                            setSearchUser(e.target.value);
-                            setCurrentPage(1);
-                          }}
-                          placeholder="Search..."
-                          className="w-full h-10 pl-9 pr-8 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#181a18] text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-slate-400 dark:focus:border-white/20 focus:ring-2 focus:ring-slate-400/10 shadow-2xs hover:border-slate-300 dark:hover:border-white/20 transition-all duration-200"
-                        />
-                        <AnimatePresence>
-                          {searchUser && (
-                            <motion.button
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.8 }}
-                              transition={{ duration: 0.15 }}
-                              type="button"
-                              onClick={() => {
-                                setSearchUser('');
-                                setCurrentPage(1);
-                              }}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                              aria-label="Clear search"
-                            >
-                              <X className="h-3 w-3" />
-                            </motion.button>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-
+                    <UserSearch
+                      value={searchUser}
+                      onChange={(value) => {
+                        setSearchUser(value);
+                        setCurrentPage(1);
+                      }}
+                      users={sortedUsers}
+                      onSelect={handleOpenEdit}
+                    />
                     {/* Export */}
                     <a
                       href="/api/admin/export?type=users"

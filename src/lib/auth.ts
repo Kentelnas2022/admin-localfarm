@@ -5,7 +5,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'localfarm_secure_admin_jwt_secret_
 const TOKEN_COOKIE_NAME = 'admin_session_token';
 
 export interface AdminPayload {
-  id: number;
+  id: number | string;
   email: string;
   role: string;
   fullName: string;

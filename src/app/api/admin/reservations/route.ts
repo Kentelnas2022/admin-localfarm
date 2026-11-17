@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionAdmin } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAdminActivity } from '@/lib/activity-logger';
 
 // GET /api/admin/reservations - Fetch paginated harvest reservations, receipts & KPIs
@@ -18,114 +18,62 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || 'all';
     const search = (searchParams.get('search') || '').trim();
 
-    // 1. KPI Aggregations
-    const [kpiRows] = await query<any[]>(`
-      SELECT 
-        COUNT(*) as totalReservations,
-        COALESCE(SUM(quantity), 0) as totalVolumeKg,
-        COALESCE(SUM(total_estimated_amount), 0) as totalEstimatedValue,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completedCount,
-        SUM(CASE WHEN status = 'ready_for_pickup' THEN 1 ELSE 0 END) as readyCount,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pendingCount,
-        SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmedCount,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelledCount
-      FROM \`harvest_reservations\`
-    `);
+    // 1. KPI Aggregations from Supabase
+    const { data: allRes } = await supabaseAdmin
+      .from('harvest_reservations')
+      .select('quantity, total_estimated_amount, status');
 
+    const allList = allRes || [];
     const kpi = {
-      totalReservations: Number(kpiRows?.totalReservations || 0),
-      totalVolumeKg: Number(kpiRows?.totalVolumeKg || 0),
-      totalEstimatedValue: Number(kpiRows?.totalEstimatedValue || 0),
-      completedCount: Number(kpiRows?.completedCount || 0),
-      readyCount: Number(kpiRows?.readyCount || 0),
-      pendingCount: Number(kpiRows?.pendingCount || 0),
-      confirmedCount: Number(kpiRows?.confirmedCount || 0),
-      cancelledCount: Number(kpiRows?.cancelledCount || 0),
+      totalReservations: allList.length,
+      totalVolumeKg: allList.reduce((acc, r) => acc + (Number(r.quantity) || 0), 0),
+      totalEstimatedValue: allList.reduce((acc, r) => acc + (Number(r.total_estimated_amount) || 0), 0),
+      completedCount: allList.filter(r => r.status === 'completed').length,
+      readyCount: allList.filter(r => r.status === 'ready_for_pickup').length,
+      pendingCount: allList.filter(r => r.status === 'pending').length,
+      confirmedCount: allList.filter(r => r.status === 'confirmed').length,
+      cancelledCount: allList.filter(r => r.status === 'cancelled').length,
     };
 
-    // 2. Filter query
-    const whereClauses: string[] = [];
-    const params: any[] = [];
+    // 2. Query reservations
+    let query = supabaseAdmin
+      .from('harvest_reservations')
+      .select(`
+        *,
+        buyer:profiles!buyer_id(full_name, email, phone_number, avatar_url),
+        seller:profiles!seller_id(full_name, email, phone_number, avatar_url)
+      `, { count: 'exact' });
 
     if (status && status !== 'all') {
-      whereClauses.push('hr.status = ?');
-      params.push(status);
+      query = query.eq('status', status);
     }
 
     if (search) {
-      whereClauses.push(`(
-        hr.reservation_code LIKE ? OR
-        hr.crop_name LIKE ? OR
-        hr.pickup_location LIKE ? OR
-        buyer.full_name LIKE ? OR
-        buyer.username LIKE ? OR
-        seller.full_name LIKE ? OR
-        seller.username LIKE ? OR
-        fp.farm_name LIKE ?
-      )`);
-      const term = `%${search}%`;
-      params.push(term, term, term, term, term, term, term, term);
+      query = query.or(`reservation_code.ilike.%${search}%,crop_name.ilike.%${search}%,pickup_location.ilike.%${search}%`);
     }
 
-    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    // Total Count
-    const [countRows] = await query<any[]>(
-      `SELECT COUNT(*) as filteredCount 
-       FROM \`harvest_reservations\` hr
-       LEFT JOIN \`users\` buyer ON hr.buyer_id = buyer.id
-       LEFT JOIN \`users\` seller ON hr.seller_id = seller.id
-       LEFT JOIN \`farmer_profiles\` fp ON seller.id = fp.user_id
-       ${whereSql}`,
-      params
-    );
-    const totalCount = Number(countRows?.filteredCount || 0);
+    const { data: reservationRows, count, error } = await query;
+    if (error) throw error;
+
+    const totalCount = count || 0;
     const totalPages = Math.max(1, Math.ceil(totalCount / limit));
 
-    // Data query
-    const reservations = await query<any[]>(
-      `SELECT 
-        hr.id,
-        hr.reservation_code,
-        hr.post_id,
-        hr.seller_id,
-        hr.buyer_id,
-        hr.crop_name,
-        hr.quantity,
-        hr.unit,
-        hr.price_per_unit,
-        hr.total_estimated_amount,
-        hr.actual_weighed_quantity,
-        hr.final_settled_amount,
-        hr.harvest_date,
-        hr.pickup_location,
-        hr.status,
-        hr.qr_token,
-        hr.buyer_notes,
-        hr.seller_notes,
-        hr.weighed_at,
-        hr.completed_at,
-        hr.created_at,
-        hr.updated_at,
-        buyer.full_name as buyer_name,
-        buyer.email as buyer_email,
-        buyer.phone_number as buyer_phone,
-        buyer.avatar_url as buyer_avatar,
-        seller.full_name as seller_name,
-        seller.email as seller_email,
-        seller.phone_number as seller_phone,
-        seller.avatar_url as seller_avatar,
-        fp.farm_name,
-        fp.farmer_code
-      FROM \`harvest_reservations\` hr
-      LEFT JOIN \`users\` buyer ON hr.buyer_id = buyer.id
-      LEFT JOIN \`users\` seller ON hr.seller_id = seller.id
-      LEFT JOIN \`farmer_profiles\` fp ON seller.id = fp.user_id
-      ${whereSql}
-      ORDER BY hr.created_at DESC
-      LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
+    const reservations = (reservationRows || []).map((hr: any) => ({
+      ...hr,
+      buyer_name: hr.buyer?.full_name || 'Buyer',
+      buyer_email: hr.buyer?.email || '',
+      buyer_phone: hr.buyer?.phone_number || '',
+      buyer_avatar: hr.buyer?.avatar_url || null,
+      seller_name: hr.seller?.full_name || 'Seller',
+      seller_email: hr.seller?.email || '',
+      seller_phone: hr.seller?.phone_number || '',
+      seller_avatar: hr.seller?.avatar_url || null,
+      farm_name: hr.crop_name ? `${hr.crop_name} Farm` : 'Local Farm'
+    }));
 
     return NextResponse.json({
       success: true,
@@ -159,12 +107,13 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Reservation ID is required' }, { status: 400 });
     }
 
-    const [existing] = await query<any[]>(
-      `SELECT * FROM \`harvest_reservations\` WHERE id = ?`,
-      [id]
-    );
+    const { data: existing, error: findErr } = await supabaseAdmin
+      .from('harvest_reservations')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    if (!existing) {
+    if (findErr || !existing) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
@@ -174,17 +123,20 @@ export async function PATCH(req: NextRequest) {
       const weighed = Number(actualWeighedQuantity) || Number(existing.quantity);
       const finalPrice = weighed * Number(existing.price_per_unit);
 
-      await query(
-        `UPDATE \`harvest_reservations\`
-         SET status = 'completed',
-             actual_weighed_quantity = ?,
-             final_settled_amount = ?,
-             seller_notes = COALESCE(?, seller_notes),
-             weighed_at = NOW(),
-             completed_at = NOW()
-         WHERE id = ?`,
-        [weighed, finalPrice, adminNotes || null, id]
-      );
+      const { error: updErr } = await supabaseAdmin
+        .from('harvest_reservations')
+        .update({
+          status: 'completed',
+          actual_weighed_quantity: weighed,
+          final_settled_amount: finalPrice,
+          seller_notes: adminNotes || existing.seller_notes,
+          weighed_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (updErr) throw updErr;
 
       await logAdminActivity({
         action: 'Reservation Verified & Completed',
@@ -208,13 +160,16 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
       }
 
-      await query(
-        `UPDATE \`harvest_reservations\`
-         SET status = ?,
-             seller_notes = COALESCE(?, seller_notes)
-         WHERE id = ?`,
-        [newStatus, adminNotes || null, id]
-      );
+      const { error: updErr } = await supabaseAdmin
+        .from('harvest_reservations')
+        .update({
+          status: newStatus,
+          seller_notes: adminNotes || existing.seller_notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (updErr) throw updErr;
 
       await logAdminActivity({
         action: `Reservation Status Changed (${newStatus})`,

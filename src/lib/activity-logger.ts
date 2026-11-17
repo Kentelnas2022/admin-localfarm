@@ -1,4 +1,4 @@
-import { query } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export interface ActivityLogEntry {
   action: string;
@@ -10,7 +10,7 @@ export interface ActivityLogEntry {
 }
 
 /**
- * Centrally log administrative and security actions into MySQL admin_activity_logs
+ * Centrally log administrative and security actions into Supabase admin_activity_logs
  */
 export async function logAdminActivity({
   action,
@@ -21,10 +21,21 @@ export async function logAdminActivity({
   status = 'success'
 }: ActivityLogEntry): Promise<boolean> {
   try {
-    await query(
-      `INSERT INTO \`admin_activity_logs\` (action, detail, type, user, ip, status) VALUES (?, ?, ?, ?, ?, ?)`,
-      [action, detail, type, user, ip, status]
-    );
+    const { error } = await supabaseAdmin
+      .from('admin_activity_logs')
+      .insert({
+        action,
+        detail,
+        type,
+        user_email: user,
+        ip,
+        status
+      });
+
+    if (error) {
+      console.warn('Supabase activity log warning:', error.message);
+      return false;
+    }
     return true;
   } catch (error) {
     console.error('Error writing to admin_activity_logs:', error);

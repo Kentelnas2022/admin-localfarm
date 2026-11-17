@@ -426,8 +426,10 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
     setTimeout(() => setToast(null), 4000);
   }
 
-  const fetchReports = useCallback(async (page = currentPage, currentFilter = filter, search = searchQuery, size = pageSize) => {
-    setIsLoading(true);
+  const reportsRequest = useRef(0);
+  const fetchReports = useCallback(async (page = currentPage, currentFilter = filter, search = searchQuery, size = pageSize, silent = false) => {
+    const requestId = ++reportsRequest.current;
+    if (!silent) setIsLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -435,8 +437,9 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
         filter: currentFilter,
         search
       });
-      const res = await fetch(`/api/admin/reports?${params.toString()}`);
+      const res = await fetch(`/api/admin/reports?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json();
+      if (requestId !== reportsRequest.current) return;
       if (res.ok) {
         setReports(data.reports || []);
         if (data.stats) setStats(data.stats);
@@ -449,13 +452,30 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
     } catch (err) {
       console.error('Failed to load reports:', err);
     } finally {
-      setIsLoading(false);
+      if (requestId === reportsRequest.current) setIsLoading(false);
     }
   }, [currentPage, filter, searchQuery, pageSize]);
 
   useEffect(() => {
     fetchReports(1, filter, searchQuery, pageSize);
   }, [filter, searchQuery, pageSize]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchReports(currentPage, filter, searchQuery, pageSize, true);
+      }
+    };
+    const timer = window.setInterval(refresh, 10000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      reportsRequest.current++;
+    };
+  }, [fetchReports, currentPage, filter, searchQuery, pageSize]);
 
   // Open Dedicated Reason-Based Suspension Modal (Supports Auto-Generated Penalty Days & Manual Override)
   function openSuspendModal(report: ReportItem) {
@@ -1549,310 +1569,73 @@ export function AdminModeration({ initialFilter = 'all', onReportAction }: Admin
       {/* MODAL A: DEDICATED "SUSPEND USER BASED ON REASON" ENFORCEMENT MODAL   */}
       {/* ===================================================================== */}
       {mounted && suspendTargetReport && createPortal(
-        <div
-          onClick={() => setSuspendTargetReport(null)}
-          className="admin-communications fixed inset-0 z-[100001] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#1f2022] border border-slate-200/90 dark:border-[#343538] rounded-3xl max-w-4xl w-full p-5 sm:p-6 space-y-4 shadow-2xl my-auto animate-in zoom-in-95 duration-150"
-          >
-            {/* Header: Ultra Clean, Formal & Modern */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-[#333538]">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/60 flex items-center justify-center shrink-0">
-                  <Ban className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white leading-tight">
-                    Account Penalty & Enforcement
-                  </h3>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
-                    Ticket <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{formatTicketNumber(suspendTargetReport.report_code)}</span> &bull; Accused: <span className="font-bold text-slate-800 dark:text-white">{suspendTargetReport.reported_user_name}</span>
-                  </p>
-                </div>
+        <div className="admin-communications penalty-backdrop" onClick={() => { if (actionLoadingId !== suspendTargetReport.id) setSuspendTargetReport(null); }}>
+          <section className="penalty-dialog" role="dialog" aria-modal="true" aria-labelledby="penalty-title" onClick={(e) => e.stopPropagation()}>
+            <header className="penalty-header">
+              <div>
+                <span className="penalty-eyebrow">ACCOUNT MODERATION</span>
+                <h2 id="penalty-title">Review account action</h2>
+                <p>{suspendTargetReport.reported_user_name}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSuspendTargetReport(null)}
-                className="h-8 w-8 rounded-full bg-slate-100 dark:bg-[#2c2d30] hover:bg-slate-200 dark:hover:bg-[#393a3d] text-slate-500 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
+              <button type="button" className="penalty-close" aria-label="Close account action" disabled={actionLoadingId === suspendTargetReport.id} onClick={() => setSuspendTargetReport(null)}><X size={18} /></button>
+            </header>
             {(() => {
-              const rec = calculateRecommendedPenalty(
-                suspendTargetReport.reason,
-                suspendTargetReport.statement,
-                suspendTargetReport.severity
-              );
-              const isCurrentMatch =
-                (rec.type === 'permanent' && suspensionType === 'permanent') ||
-                (rec.type === 'temporary' && suspensionType === 'temporary' && manualDays === String(rec.days));
-
+              const rec = calculateRecommendedPenalty(suspendTargetReport.reason, suspendTargetReport.statement, suspendTargetReport.severity);
+              const isCurrentMatch = (rec.type === 'permanent' && suspensionType === 'permanent') || (rec.type === 'temporary' && suspensionType === 'temporary' && manualDays === String(rec.days));
+              const busy = actionLoadingId === suspendTargetReport.id;
               return (
                 <form onSubmit={handleConfirmSuspend}>
-                  {/* Clean 2-Column Grid Body: Distinct Separated Content Containers, Zero Scroll */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-                    
-                    {/* CONTAINER 1 (LEFT COLUMN): Case Statement, Recommendation & Duration Controls */}
-                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-[#18191a] border border-slate-200/80 dark:border-[#333538] flex flex-col justify-between space-y-4">
-                      <div className="space-y-3.5">
-                        {/* Statement & Auto Recommendation Card */}
-                        <div className="p-3 rounded-xl bg-white dark:bg-[#242526] border border-slate-200/80 dark:border-[#333538] space-y-2 shadow-2xs">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
-                              Incident Report ({suspendTargetReport.reporter_name})
-                            </span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#303236] text-slate-700 dark:text-slate-300">
-                              {suspendTargetReport.severity.toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed text-[11px] italic">
-                            &ldquo;{suspendTargetReport.statement}&rdquo;
-                          </p>
-                          <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-[#2f3134]">
-                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-[11px]">
-                              <Sparkles className="h-3 w-3 text-farm-600" />
-                              <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                {rec.type === 'permanent' ? 'Permanent Ban' : `${rec.days} Days Recommended`}
-                              </span>
-                            </div>
-                            {!isCurrentMatch && (
-                              <button
-                                type="button"
-                                onClick={() => applyRecommendation(rec)}
-                                className="px-2 py-0.5 rounded-lg bg-[#237227] hover:bg-[#1c5c1f] text-white text-[10px] font-bold transition-all shrink-0 cursor-pointer shadow-2xs active:scale-[0.98]"
-                              >
-                                Apply Auto
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 1. Account Penalty Action Selector */}
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
-                            Penalty Action
-                          </label>
-                          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-white dark:bg-[#242526] border border-slate-200/80 dark:border-[#333538]">
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateSuspensionType('temporary', manualDays)}
-                              className={`py-2 px-1 text-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                suspensionType === 'temporary'
-                                  ? 'bg-[#237227] text-white shadow-2xs'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-[#2c2d30]'
-                              }`}
-                            >
-                              Temporary
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateSuspensionType('permanent')}
-                              className={`py-2 px-1 text-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                suspensionType === 'permanent'
-                                  ? 'bg-rose-600 text-white shadow-2xs'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-[#2c2d30]'
-                              }`}
-                            >
-                              Permanent Ban
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateSuspensionType('warning')}
-                              className={`py-2 px-1 text-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                suspensionType === 'warning'
-                                  ? 'bg-amber-600 text-white shadow-2xs'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-[#2c2d30]'
-                              }`}
-                            >
-                              Policy Warning
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* 2. Duration Selector (when Temporary) */}
-                        {suspensionType === 'temporary' && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                Suspension Duration
-                              </label>
-                              <span className="text-[11px] font-bold text-[#237227] dark:text-emerald-400">
-                                {manualDays} {manualDays === '1' ? 'Day' : 'Days'} Selected
-                              </span>
-                            </div>
-
-                            {/* Presets Row: 1d, 3d, 7d, 30d, 60d, Custom */}
-                            <div className="grid grid-cols-6 gap-1.5">
-                              {[
-                                { id: '1', label: '1 Day' },
-                                { id: '3', label: '3 Days' },
-                                { id: '7', label: '7 Days' },
-                                { id: '30', label: '30 Days' },
-                                { id: '60', label: '60 Days' },
-                              ].map((d) => {
-                                const isSelected = !isCustomDays && manualDays === d.id;
-                                return (
-                                  <button
-                                    key={d.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setIsCustomDays(false);
-                                      handleManualDaysChange(d.id);
-                                    }}
-                                    className={`py-2 px-1 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center whitespace-nowrap ${
-                                      isSelected
-                                        ? 'border-[#237227] bg-[#237227] text-white shadow-2xs'
-                                        : 'border-slate-200/90 dark:border-[#383a3d] bg-white dark:bg-[#242526] text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-[#2c2d30]'
-                                    }`}
-                                  >
-                                    {d.label}
-                                  </button>
-                                );
-                              })}
-                              <button
-                                type="button"
-                                onClick={() => setIsCustomDays(true)}
-                                className={`py-2 px-1 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center whitespace-nowrap ${
-                                  isCustomDays
-                                    ? 'border-[#237227] bg-[#237227] text-white shadow-2xs'
-                                    : 'border-slate-200/90 dark:border-[#383a3d] bg-white dark:bg-[#242526] text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-[#2c2d30]'
-                                }`}
-                              >
-                                Custom
-                              </button>
-                            </div>
-
-                            {/* Custom Days Input: ONLY SHOWN WHEN CUSTOM IS CLICKED */}
-                            {isCustomDays && (
-                              <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-[#2f3134] animate-in fade-in duration-150">
-                                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">
-                                  Enter Days:
-                                </span>
-                                <div className="relative flex-1">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="365"
-                                    value={manualDays}
-                                    onChange={(e) => handleManualDaysChange(e.target.value)}
-                                    className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-[#333538] bg-white dark:bg-[#242526] text-slate-900 dark:text-white outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] shadow-2xs"
-                                    placeholder="e.g. 14"
-                                    autoFocus
-                                  />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">
-                                    days
-                                  </span>
-                                </div>
-                                <span className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-[#237227]/10 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400 border border-[#237227]/30 shrink-0">
-                                  {manualDays}d
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                  <div className="penalty-columns">
+                    <section className="penalty-settings" aria-label="Account action settings">
+                      <div className="penalty-case">
+                        <div className="penalty-case-heading"><span className="penalty-label">Reported incident</span><span className="penalty-severity">{suspendTargetReport.severity}</span></div>
+                        <h3>{suspendTargetReport.reason}</h3>
+                        <p className="penalty-statement">{suspendTargetReport.statement}</p>
+                        <span className="penalty-reporter">Reported by {suspendTargetReport.reporter_name}</span>
                       </div>
-                    </div>
-
-                    {/* CONTAINER 2 (RIGHT COLUMN): Official Notice to User & Action Footer */}
-                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-[#18191a] border border-slate-200/80 dark:border-[#333538] flex flex-col justify-between space-y-4">
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                              Official Notice to User
-                            </label>
-                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#237227]/10 dark:bg-[#237227]/25 text-[#237227] dark:text-emerald-400 border border-[#237227]/30">
-                              Auto-Generated
-                            </span>
+                      <fieldset disabled={busy} className="penalty-fieldset">
+                        <legend className="penalty-label">Action</legend>
+                        <div className="penalty-segments">
+                          {([{ id: 'temporary', label: 'Suspend' }, { id: 'permanent', label: 'Ban' }, { id: 'warning', label: 'Warn' }] as const).map((option) => (
+                            <button key={option.id} type="button" aria-pressed={suspensionType === option.id} onClick={() => handleUpdateSuspensionType(option.id, manualDays)}>{option.label}</button>
+                          ))}
+                        </div>
+                      </fieldset>
+                      {suspensionType === 'temporary' && (
+                        <fieldset disabled={busy} className="penalty-fieldset">
+                          <legend className="penalty-label">Duration</legend>
+                          <div className="penalty-durations">
+                            {['1', '3', '7', '30', '60'].map((days) => (
+                              <button type="button" key={days} aria-pressed={!isCustomDays && manualDays === days} onClick={() => { setIsCustomDays(false); handleManualDaysChange(days); }}>{days} {days === '1' ? 'day' : 'days'}</button>
+                            ))}
+                            <button type="button" aria-pressed={isCustomDays} onClick={() => setIsCustomDays(true)}>Custom</button>
                           </div>
-                          <span className="text-[10px] font-medium text-slate-400">
-                            Direct In-App Delivery
-                          </span>
-                        </div>
-
-                        {/* Recipient summary banner */}
-                        <div className="p-2.5 rounded-xl bg-white dark:bg-[#242526] border border-slate-200/70 dark:border-[#333538] flex items-center justify-between text-xs">
-                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                            {suspensionType === 'permanent'
-                              ? `Account Permanent Ban Notice`
-                              : suspensionType === 'warning'
-                              ? `Policy Warning Notice`
-                              : `${manualDays}-Day Suspension Notice`}
-                          </span>
-                          <span className="text-[11px] text-slate-400 shrink-0 ml-2">
-                            To: @{suspendTargetReport.reported_user_name}
-                          </span>
-                        </div>
-
-                        <textarea
-                          required
-                          rows={6}
-                          value={suspensionNote}
-                          onChange={(e) => setSuspensionNote(e.target.value)}
-                          placeholder="Official enforcement message delivered to user..."
-                          className="w-full p-3 rounded-xl border border-slate-200 dark:border-[#333538] bg-white dark:bg-[#242526] text-xs text-slate-800 dark:text-slate-200 outline-none focus:border-[#237227] focus:ring-1 focus:ring-[#237227] leading-relaxed resize-none shadow-2xs"
-                        />
-
-                        <div className="text-[10px] text-slate-400 flex items-center justify-between pt-0.5">
-                          <span>Recorded in municipal logs upon confirmation.</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const resetNotice = generateOfficialNotice(
-                                suspendTargetReport.reason,
-                                suspendTargetReport.statement,
-                                suspensionType,
-                                manualDays,
-                                formatTicketNumber(suspendTargetReport.report_code)
-                              );
-                              setSuspensionNote(resetNotice);
-                            }}
-                            className="text-[10px] font-bold text-[#237227] dark:text-emerald-400 hover:underline cursor-pointer shrink-0 ml-2"
-                          >
-                            Reset to Default
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Modal Actions Footer: Natural Cancel + Red Penalize Action */}
-                      <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200/70 dark:border-[#333538]">
-                        <button
-                          type="button"
-                          onClick={() => setSuspendTargetReport(null)}
-                          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#333538] bg-white dark:bg-[#242526] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-all cursor-pointer shadow-2xs"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={actionLoadingId === suspendTargetReport.id}
-                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                          <span>
-                            {actionLoadingId === suspendTargetReport.id
-                              ? 'Archiving & Enforcing...'
-                              : suspensionType === 'permanent'
-                              ? 'Confirm Permanent Ban & Archive'
-                              : suspensionType === 'warning'
-                              ? 'Issue Policy Warning'
-                              : `Enforce ${manualDays}-Day Ban & Archive`}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
+                          {isCustomDays && <div className="penalty-custom"><label htmlFor="penalty-days">Number of days</label><input id="penalty-days" type="number" min="1" max="365" required value={manualDays} onChange={(e) => handleManualDaysChange(e.target.value)} /></div>}
+                        </fieldset>
+                      )}
+                      <div className="penalty-recommendation"><Sparkles size={14} /><span>Suggested: {rec.type === 'permanent' ? 'permanent ban' : `${rec.days} days`}</span>{!isCurrentMatch && <button type="button" disabled={busy} onClick={() => applyRecommendation(rec)}>Apply</button>}</div>
+                    </section>
+                    <section className="penalty-notice" aria-label="Notice preview">
+                      <div className="penalty-notice-heading"><label htmlFor="penalty-notice" className="penalty-label">Message to user</label><button type="button" disabled={busy} onClick={() => setSuspensionNote(generateOfficialNotice(suspendTargetReport.reason, suspendTargetReport.statement, suspensionType, manualDays, formatTicketNumber(suspendTargetReport.report_code)))}>Reset</button></div>
+                      <p className="penalty-notice-subject">{suspensionType === 'permanent' ? 'Permanent account ban' : suspensionType === 'warning' ? 'Policy warning' : `${manualDays}-day suspension`}</p>
+                      <textarea id="penalty-notice" required rows={9} disabled={busy} value={suspensionNote} onChange={(e) => setSuspensionNote(e.target.value)} />
+                      <p className="penalty-reference" title={formatTicketNumber(suspendTargetReport.report_code)}>Case {formatTicketNumber(suspendTargetReport.report_code)}</p>
+                    </section>
                   </div>
+                  <footer className="penalty-footer">
+                    <p>{suspensionType === 'warning' ? 'The user will receive this warning.' : 'This action restricts the account and archives the case.'}</p>
+                    <div className="penalty-footer-actions">
+                      <button type="button" className="penalty-cancel" disabled={busy} onClick={() => setSuspendTargetReport(null)}>Cancel</button>
+                      <button type="submit" className="penalty-confirm" disabled={busy}><Ban size={15} />{busy ? 'Saving…' : suspensionType === 'permanent' ? 'Ban & archive' : suspensionType === 'warning' ? 'Send warning' : 'Suspend & archive'}</button>
+                    </div>
+                  </footer>
                 </form>
               );
             })()}
-          </div>
-        </div>,
-        document.body
+          </section>
+        </div>, document.body
       )}
+
 
       {/* ===================================================================== */}
       {/* MODAL B: REPORT EVIDENCE & INVESTIGATION DOSSIER (IMAGE 2 DRAWER UI)  */}

@@ -1,82 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { getSessionAdmin, signAdminToken, TOKEN_COOKIE_NAME, AdminPayload } from '@/lib/auth';
-import { query } from '@/lib/db';
-import bcrypt from 'bcryptjs';
+import { getSessionAdmin, signAdminToken, TOKEN_COOKIE_NAME } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAdminActivity } from '@/lib/activity-logger';
-
-// Ensure tables exist
-async function ensureTables() {
-  try {
-    await query(`
-      CREATE TABLE IF NOT EXISTS \`system_settings\` (
-        \`id\` INT UNSIGNED NOT NULL DEFAULT 1 PRIMARY KEY,
-        \`system_name\` VARCHAR(150) NOT NULL DEFAULT 'AgroGuard Marketplace',
-        \`org_name\` VARCHAR(150) NOT NULL DEFAULT 'Department of Agriculture',
-        \`email_address\` VARCHAR(150) NOT NULL DEFAULT 'admin@agroguard.ph',
-        \`contact_number\` VARCHAR(50) NOT NULL DEFAULT '+63 912 345 6789',
-        \`language\` VARCHAR(50) NOT NULL DEFAULT 'English',
-        \`timezone\` VARCHAR(50) NOT NULL DEFAULT 'Asia/Manila',
-        \`theme_preference\` ENUM('light', 'dark', 'system') NOT NULL DEFAULT 'dark',
-        \`logo_url\` LONGTEXT NULL,
-        \`two_factor_auth\` TINYINT(1) NOT NULL DEFAULT 1,
-        \`session_timeout_minutes\` INT NOT NULL DEFAULT 120,
-        \`notify_scam_reports\` TINYINT(1) NOT NULL DEFAULT 1,
-        \`notify_farmer_verifications\` TINYINT(1) NOT NULL DEFAULT 1,
-        \`notify_security_alerts\` TINYINT(1) NOT NULL DEFAULT 1,
-        \`app_version\` VARCHAR(20) NOT NULL DEFAULT 'v1.0.0',
-        \`environment\` VARCHAR(50) NOT NULL DEFAULT 'Production',
-        \`updated_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    await query(`
-      CREATE TABLE IF NOT EXISTS \`admin_activity_logs\` (
-        \`id\` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        \`action\` VARCHAR(150) NOT NULL,
-        \`detail\` TEXT NOT NULL,
-        \`type\` ENUM('auth', 'announcements', 'system', 'security') NOT NULL DEFAULT 'system',
-        \`user\` VARCHAR(150) NOT NULL DEFAULT 'admin@localfarm.com',
-        \`ip\` VARCHAR(45) NOT NULL DEFAULT '127.0.0.1',
-        \`status\` ENUM('success', 'failed', 'warning') NOT NULL DEFAULT 'success',
-        \`created_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        INDEX \`idx_admin_logs_type\` (\`type\`),
-        INDEX \`idx_admin_logs_status\` (\`status\`),
-        INDEX \`idx_admin_logs_created\` (\`created_at\` DESC)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    const existing = await query<any[]>(`SELECT id FROM \`system_settings\` WHERE id = 1`);
-    if (!existing || existing.length === 0) {
-      await query(`
-        INSERT INTO \`system_settings\` (\`id\`, \`system_name\`, \`org_name\`, \`email_address\`, \`contact_number\`, \`language\`, \`timezone\`, \`theme_preference\`)
-        VALUES (1, 'Local Farm', 'Local Farm Agricultural Cooperative', 'admin@localfarm.com', '+63 (032) 434-FARM', 'English', 'Asia/Manila', 'light')
-      `);
-    } else {
-      // Migrate legacy default if still present
-      await query(`
-        UPDATE \`system_settings\` SET 
-          system_name = CASE WHEN system_name = 'AgroGuard Marketplace' THEN 'Local Farm' ELSE system_name END,
-          email_address = CASE WHEN email_address = 'admin@agroguard.ph' THEN 'admin@localfarm.com' ELSE email_address END
-        WHERE id = 1
-      `);
-    }
-  } catch (err) {
-    console.error('ensureTables error:', err);
-  }
-}
 
 export async function GET(request: NextRequest) {
   try {
-    await ensureTables();
-
     const sessionAdmin = await getSessionAdmin();
     const { searchParams } = new URL(request.url);
     const emailParam = searchParams.get('email') || sessionAdmin?.email || 'admin@localfarm.com';
 
-    // Fetch system settings
-    const settingsRows = await query<any[]>(`SELECT * FROM \`system_settings\` WHERE id = 1 LIMIT 1`);
-    const settings = settingsRows[0] || {
+    // 1. Fetch system settings from Supabase
+    const { data: settingsRow } = await supabaseAdmin
+      .from('system_settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+
+    const settings = settingsRow || {
       id: 1,
       system_name: 'Local Farm',
       org_name: 'Local Farm Agricultural Cooperative',
@@ -84,43 +25,42 @@ export async function GET(request: NextRequest) {
       contact_number: '+63 (032) 434-FARM',
       language: 'English',
       timezone: 'Asia/Manila',
-      theme_preference: 'light',
+      theme_preference: 'dark',
       logo_url: null,
-      two_factor_auth: 1,
+      two_factor_auth: true,
       session_timeout_minutes: 120,
-      notify_scam_reports: 1,
-      notify_farmer_verifications: 1,
-      notify_security_alerts: 1,
+      notify_scam_reports: true,
+      notify_farmer_verifications: true,
+      notify_security_alerts: true,
       app_version: 'v1.0.0',
       environment: 'Production'
     };
 
-    // Fetch admin account details
-    let adminAccount: any = null;
-    const userRows = await query<any[]>(
-      `SELECT id, full_name, email, phone_number, role, avatar_url, created_at FROM \`users\` WHERE email = ? OR role = 'admin' ORDER BY (role = 'admin') DESC LIMIT 1`,
-      [emailParam]
-    );
-    if (userRows && userRows.length > 0) {
-      adminAccount = userRows[0];
-    } else {
-      adminAccount = {
-        id: 1,
-        full_name: 'System Administrator',
-        email: emailParam,
-        phone_number: '+63 912 345 6789',
-        role: 'admin',
-        avatar_url: null
-      };
-    }
+    // 2. Fetch admin account details from profiles
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, email, phone_number, role, avatar_url, created_at')
+      .or(`email.eq.${emailParam},role.eq.admin`)
+      .limit(1)
+      .maybeSingle();
 
-    // Fetch activity logs
-    const logRows = await query<any[]>(
-      `SELECT id, action, detail, type, user, ip, status, created_at FROM \`admin_activity_logs\` ORDER BY created_at DESC LIMIT 100`
-    );
+    const adminAccount = profile || {
+      id: sessionAdmin?.id || 'admin-root',
+      full_name: sessionAdmin?.fullName || 'System Administrator',
+      email: emailParam,
+      phone_number: '+63 912 345 6789',
+      role: 'admin',
+      avatar_url: null
+    };
 
-    // Format timestamps for display (e.g. "Today at 02:45 PM" or formatted date)
-    const logs = logRows.map(log => {
+    // 3. Fetch activity logs from Supabase
+    const { data: logRows } = await supabaseAdmin
+      .from('admin_activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const logs = (logRows || []).map((log: any) => {
       const d = new Date(log.created_at);
       const now = new Date();
       const isToday = d.toDateString() === now.toDateString();
@@ -136,7 +76,7 @@ export async function GET(request: NextRequest) {
         action: log.action,
         detail: log.detail,
         type: log.type,
-        user: log.user,
+        user: log.user_email || log.user || 'admin@localfarm.com',
         ip: log.ip,
         status: log.status,
         timestamp,
@@ -144,18 +84,19 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Platform counts
-    const [userCountRes] = await query<any[]>(`SELECT COUNT(*) as count FROM \`users\``);
-    let postCount = 0;
-    try {
-      const [postCountRes] = await query<any[]>(`SELECT COUNT(*) as count FROM \`posts\``);
-      postCount = postCountRes?.count || 0;
-    } catch {}
-    let annCount = 0;
-    try {
-      const [annCountRes] = await query<any[]>(`SELECT COUNT(*) as count FROM \`announcements\` WHERE is_archived = 0`);
-      annCount = annCountRes?.count || 0;
-    } catch {}
+    // 4. Platform counts from Supabase
+    const { count: userCount } = await supabaseAdmin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: postCount } = await supabaseAdmin
+      .from('posts')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: annCount } = await supabaseAdmin
+      .from('announcements')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_archived', false);
 
     return NextResponse.json({
       success: true,
@@ -169,13 +110,13 @@ export async function GET(request: NextRequest) {
       adminAccount,
       logs,
       stats: {
-        totalUsers: userCountRes?.count || 0,
-        totalPosts: postCount,
-        totalAnnouncements: annCount,
+        totalUsers: userCount || 0,
+        totalPosts: postCount || 0,
+        totalAnnouncements: annCount || 0,
         status: 'Online',
         version: settings.app_version || 'v1.0.0',
         environment: settings.environment || 'Production',
-        lastUpdated: settings.updated_at ? new Date(settings.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Jul 23, 2026'
+        lastUpdated: settings.updated_at ? new Date(settings.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Nov 17, 2026'
       }
     });
   } catch (error: any) {
@@ -186,7 +127,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureTables();
     const sessionAdmin = await getSessionAdmin();
     const body = await request.json();
     const { action, data, adminEmail = sessionAdmin?.email || 'admin@localfarm.com' } = body;
@@ -199,31 +139,31 @@ export async function POST(request: NextRequest) {
     // 1. SAVE GENERAL SETTINGS
     if (action === 'save_general') {
       const {
-        systemName = 'Local Farm',
-        orgName = 'Local Farm Agricultural Cooperative',
+        systemName = 'LocalFarm AgroGuard Marketplace',
+        orgName = 'Department of Agriculture Region X',
         emailAddress = 'admin@localfarm.com',
         contactNumber = '+63 (032) 434-FARM',
         language = 'English',
         timezone = 'Asia/Manila',
-        themePreference = 'light',
+        themePreference = 'dark',
         logoUrl = null
       } = data || {};
 
-      await query(
-        `UPDATE \`system_settings\` SET 
-          system_name = ?, 
-          org_name = ?, 
-          email_address = ?, 
-          contact_number = ?, 
-          language = ?, 
-          timezone = ?, 
-          theme_preference = ?, 
-          logo_url = COALESCE(?, logo_url)
-        WHERE id = 1`,
-        [systemName, orgName, emailAddress, contactNumber, language, timezone, themePreference, logoUrl]
-      );
+      await supabaseAdmin
+        .from('system_settings')
+        .upsert({
+          id: 1,
+          system_name: systemName,
+          org_name: orgName,
+          email_address: emailAddress,
+          contact_number: contactNumber,
+          language,
+          timezone,
+          theme_preference: themePreference,
+          logo_url: logoUrl,
+          updated_at: new Date().toISOString()
+        });
 
-      // Record activity log
       await logAdminActivity({
         action: 'General Settings Saved',
         detail: `Updated system name to "${systemName}" and contact preferences`,
@@ -241,124 +181,46 @@ export async function POST(request: NextRequest) {
 
     // 2. UPDATE ACCOUNT SETTINGS
     if (action === 'update_account') {
-      const {
-        fullName,
-        phoneNumber,
-        currentPassword,
-        newPassword
-      } = data || {};
-
-      const trimmedName = fullName !== undefined && fullName !== null ? String(fullName).trim() : null;
-      const trimmedPhone = phoneNumber !== undefined && phoneNumber !== null ? String(phoneNumber).trim() : null;
-
-      // Prioritize currently authenticated session admin, then provided adminEmail, then default admin
+      const { fullName, phoneNumber } = data || {};
       const targetEmail = adminEmail || sessionAdmin?.email || 'admin@localfarm.com';
-      const targetId = sessionAdmin?.id || 0;
 
-      const users = await query<any[]>(
-        `SELECT id, password, password_hash, full_name, email, phone_number, role 
-         FROM \`users\` 
-         WHERE id = ? OR email = ? OR role = 'admin' 
-         ORDER BY (id = ?) DESC, (email = ?) DESC, (role = 'admin') DESC 
-         LIMIT 1`,
-        [targetId, targetEmail, targetId, targetEmail]
-      );
+      const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+      if (fullName) updateData.full_name = String(fullName).trim();
+      if (phoneNumber !== undefined) updateData.phone_number = String(phoneNumber).trim();
 
-      if (!users || users.length === 0) {
-        return NextResponse.json({ error: 'Administrator account not found' }, { status: 404 });
-      }
+      await supabaseAdmin
+        .from('profiles')
+        .update(updateData)
+        .eq('email', targetEmail);
 
-      const adminUser = users[0];
-      let passwordChanged = false;
-
-      // Extract first and last name if full name provided
-      let firstName: string | null = null;
-      let lastName: string | null = null;
-      if (trimmedName) {
-        const parts = trimmedName.split(' ').filter(Boolean);
-        firstName = parts[0] || null;
-        lastName = parts.length > 1 ? parts.slice(1).join(' ') : null;
-      }
-
-      if (newPassword && String(newPassword).trim().length > 0) {
-        if (!currentPassword) {
-          return NextResponse.json({ error: 'Current password is required to change password.' }, { status: 400 });
-        }
-
-        const isMatch = await bcrypt.compare(String(currentPassword), adminUser.password);
-        if (!isMatch) {
-          await logAdminActivity({
-            action: 'Password Change Failed',
-            detail: `Incorrect current password entered during credentials update for ${adminUser.email}`,
-            type: 'auth',
-            user: adminUser.email,
-            ip: clientIp,
-            status: 'failed'
-          });
-          return NextResponse.json({ error: 'Incorrect current password. Please verify and try again.' }, { status: 400 });
-        }
-
-        if (String(newPassword).length < 6) {
-          return NextResponse.json({ error: 'New password must be at least 6 characters long.' }, { status: 400 });
-        }
-
-        const hashed = await bcrypt.hash(String(newPassword), 10);
-        await query(
-          `UPDATE \`users\` SET 
-            full_name = COALESCE(?, full_name), 
-            first_name = COALESCE(?, first_name),
-            last_name = COALESCE(?, last_name),
-            phone_number = COALESCE(?, phone_number), 
-            password = ?, 
-            password_hash = ? 
-          WHERE id = ?`,
-          [trimmedName, firstName, lastName, trimmedPhone, hashed, hashed, adminUser.id]
-        );
-        passwordChanged = true;
-      } else {
-        await query(
-          `UPDATE \`users\` SET 
-            full_name = COALESCE(?, full_name), 
-            first_name = COALESCE(?, first_name),
-            last_name = COALESCE(?, last_name),
-            phone_number = COALESCE(?, phone_number) 
-          WHERE id = ?`,
-          [trimmedName, firstName, lastName, trimmedPhone, adminUser.id]
-        );
-      }
-
-      const finalName = trimmedName || adminUser.full_name;
-      const finalPhone = trimmedPhone !== null ? trimmedPhone : adminUser.phone_number;
+      const finalName = fullName || sessionAdmin?.fullName || 'Admin';
 
       await logAdminActivity({
         action: 'Admin Profile Updated',
-        detail: `Updated administrator profile for ${finalName}${passwordChanged ? ' and updated login password' : ''}`,
+        detail: `Updated administrator profile for ${finalName}`,
         type: 'auth',
-        user: adminUser.email,
+        user: targetEmail,
         ip: clientIp,
         status: 'success'
       });
 
-      // Update session JWT
       const newPayload = {
-        id: adminUser.id,
-        email: adminUser.email,
-        role: adminUser.role || 'admin',
+        id: sessionAdmin?.id || 'admin-root',
+        email: targetEmail,
+        role: sessionAdmin?.role || 'admin',
         fullName: finalName
       };
       const newToken = signAdminToken(newPayload);
 
       const response = NextResponse.json({
         success: true,
-        message: passwordChanged 
-          ? 'Administrator account and password updated successfully.' 
-          : 'Administrator profile details updated successfully.',
+        message: 'Administrator profile details updated successfully.',
         adminAccount: {
-          id: adminUser.id,
+          id: sessionAdmin?.id || 'admin-root',
           full_name: finalName,
-          phone_number: finalPhone,
-          email: adminUser.email,
-          role: adminUser.role
+          phone_number: phoneNumber,
+          email: targetEmail,
+          role: sessionAdmin?.role || 'admin'
         }
       });
 
@@ -377,13 +239,14 @@ export async function POST(request: NextRequest) {
     if (action === 'update_security') {
       const { twoFactorAuth, sessionTimeoutMinutes } = data || {};
 
-      await query(
-        `UPDATE \`system_settings\` SET 
-          two_factor_auth = COALESCE(?, two_factor_auth),
-          session_timeout_minutes = COALESCE(?, session_timeout_minutes)
-        WHERE id = 1`,
-        [twoFactorAuth !== undefined ? (twoFactorAuth ? 1 : 0) : null, sessionTimeoutMinutes]
-      );
+      await supabaseAdmin
+        .from('system_settings')
+        .update({
+          two_factor_auth: Boolean(twoFactorAuth),
+          session_timeout_minutes: Number(sessionTimeoutMinutes) || 120,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
 
       await logAdminActivity({
         action: 'Security Policies Updated',
@@ -404,18 +267,15 @@ export async function POST(request: NextRequest) {
     if (action === 'update_notifications') {
       const { notifyScamReports, notifyFarmerVerifications, notifySecurityAlerts } = data || {};
 
-      await query(
-        `UPDATE \`system_settings\` SET 
-          notify_scam_reports = ?,
-          notify_farmer_verifications = ?,
-          notify_security_alerts = ?
-        WHERE id = 1`,
-        [
-          notifyScamReports ? 1 : 0,
-          notifyFarmerVerifications ? 1 : 0,
-          notifySecurityAlerts ? 1 : 0
-        ]
-      );
+      await supabaseAdmin
+        .from('system_settings')
+        .update({
+          notify_scam_reports: Boolean(notifyScamReports),
+          notify_farmer_verifications: Boolean(notifyFarmerVerifications),
+          notify_security_alerts: Boolean(notifySecurityAlerts),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
 
       await logAdminActivity({
         action: 'Notification Settings Updated',
@@ -443,7 +303,7 @@ export async function POST(request: NextRequest) {
 
       await logAdminActivity({
         action: 'Cache Cleared',
-        detail: 'Temporary assets and layout buffer freed (24.8 MB purged)',
+        detail: 'Temporary assets and layout buffer freed',
         type: 'system',
         user: adminEmail,
         ip: clientIp,
@@ -452,90 +312,13 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'System cache and temporary assets cleared successfully.'
-      });
-    }
-
-    // 6. SYNC DATABASE
-    if (action === 'sync_database') {
-      const [users] = await query<any[]>(`SELECT COUNT(*) as count FROM \`users\``);
-      let posts = [{ count: 0 }];
-      try {
-        posts = await query<any[]>(`SELECT COUNT(*) as count FROM \`posts\``);
-      } catch {}
-      let anns = [{ count: 0 }];
-      try {
-        anns = await query<any[]>(`SELECT COUNT(*) as count FROM \`announcements\``);
-      } catch {}
-
-      const userCount = users?.count || 0;
-      const postCount = posts[0]?.count || 0;
-      const annCount = anns[0]?.count || 0;
-
-      await logAdminActivity({
-        action: 'MySQL Database Synced',
-        detail: `Database records verified (${userCount} accounts, ${postCount} posts, ${annCount} announcements) with 0 errors`,
-        type: 'system',
-        user: adminEmail,
-        ip: clientIp,
-        status: 'success'
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: `Database synced successfully: ${userCount} accounts, ${postCount} posts, ${annCount} announcements verified.`,
-        stats: {
-          totalUsers: userCount,
-          totalPosts: postCount,
-          totalAnnouncements: annCount
-        }
-      });
-    }
-
-    // 7. EXPORT CSV LOGS EVENT
-    if (action === 'export_logs') {
-      await logAdminActivity({
-        action: 'Activity Logs Exported',
-        detail: 'Audit trail exported to CSV file format',
-        type: 'system',
-        user: adminEmail,
-        ip: clientIp,
-        status: 'success'
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Activity logs export recorded.'
-      });
-    }
-
-    // 8. SUBMIT SUPPORT TICKET
-    if (action === 'submit_support_ticket') {
-      const ticketId = `LF-${Math.floor(1000 + Math.random() * 9000)}`;
-      const issueSummary = body.data?.subject || 'Technical Support Request';
-      const issueDetail = body.data?.message || 'No additional details provided';
-      const category = body.data?.category || 'Technical';
-      const priority = (body.data?.priority || 'Normal').toUpperCase();
-
-      await logAdminActivity({
-        action: `Support Ticket Dispatched (#${ticketId})`,
-        detail: `[${priority}] ${category}: ${issueSummary} - ${issueDetail.substring(0, 80)}...`,
-        type: 'security',
-        user: adminEmail,
-        ip: clientIp,
-        status: 'success'
-      });
-
-      return NextResponse.json({
-        success: true,
-        ticketId,
-        message: `Ticket #${ticketId} dispatched to support@localfarm.com. Engineering team notified.`
+        message: 'System cache cleared successfully.'
       });
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error: any) {
     console.error('POST /api/admin/settings error:', error);
-    return NextResponse.json({ error: error.message || 'Operation failed' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Settings update failed' }, { status: 500 });
   }
 }
